@@ -10,6 +10,10 @@ It's a static site with no build step. Open `index.html` directly, or serve the 
 python3 -m http.server 5173
 ```
 
+## Deploying
+
+The GitHub repo is connected to the Vercel project `krillion-endless`. A push to `main` deploys to https://krillion-endless.vercel.app, and pushes to other branches get their own preview URLs.
+
 ## Adding prompts
 
 Edit `questions.js` and add an object to the array:
