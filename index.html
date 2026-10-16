@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Krillion Endless</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="ocean" class="ocean">
+    <div class="sky" id="sky">
+      <div class="sun"></div>
+      <div class="cloud c1"></div>
+      <div class="cloud c2"></div>
+      <div class="cloud c3"></div>
+    </div>
+    <div class="waterline" id="waterline">
+      <div class="boat" aria-hidden="true"></div>
+    </div>
+    <div class="rays" aria-hidden="true"></div>
+    <div id="fauna" class="fauna" aria-hidden="true"></div>
+    <div id="bubbles" class="bubbles" aria-hidden="true"></div>
+    <div class="snow" aria-hidden="true"></div>
+  </div>
+
+  <!-- Depth ruler -->
+  <div class="ruler" aria-hidden="true">
+    <div class="ruler-track" id="rulerTrack"></div>
+    <div class="ruler-you"><span>YOU</span></div>
+    <div class="mates" id="mates"></div>
+  </div>
+
+  <!-- HUD -->
+  <header class="hud" id="hud">
+    <div class="hud-box">
+      <div class="hud-label">Depth</div>
+      <div class="hud-value cyan" id="hudDepth">0m</div>
+    </div>
+    <div class="hud-center">
+      <div class="pips" id="pips"></div>
+      <div class="hud-sub" id="hudPrompt">&nbsp;</div>
+    </div>
+    <div class="hud-box right">
+      <div class="hud-label">Score</div>
+      <div class="hud-value pink" id="hudScore">0</div>
+    </div>
+  </header>
+  <button class="icon-btn quit" id="quitBtn" title="Surface (quit dive)" aria-label="Quit dive">✕</button>
+
+  <main class="stage">
+    <!-- Title -->
+    <section class="screen" id="screenTitle">
+      <h1 class="logo">KRILLION</h1>
+      <div class="subtitle">THE ENDLESS DIVE</div>
+      <p class="tagline">dive after dive · rarer answers sink deeper</p>
+
+      <details class="howto">
+        <summary>How to play</summary>
+        <ul>
+          <li><b>7 prompts</b> per dive. Name <b>one</b> valid thing for each.</li>
+          <li><b>25 seconds</b> per prompt. Not on the list? Keep guessing until the clock runs out.</li>
+          <li>Rare answers score big; obvious ones barely count.</li>
+          <li>The “clever” pick everyone thinks is obscure? That's <b>Too Clever</b>.</li>
+          <li>Every point sinks you 10&nbsp;m. 700 points reaches the trench floor.</li>
+          <li>No daily limit. Dive as many times as you like.</li>
+        </ul>
+        <table class="tiers" id="tierTable"></table>
+      </details>
+
+      <div class="stats" id="titleStats"></div>
+      <button class="big-btn" id="startBtn">▼ BEGIN DESCENT ▼</button>
+      <button class="big-btn alt" id="mpBtn">MULTIPLAYER</button>
+      <div class="dive-num" id="diveNum"></div>
+    </section>
+
+    <!-- Play -->
+    <section class="screen hidden" id="screenPlay">
+      <div class="panel prompt-card">
+        <div class="eyebrow" id="promptEyebrow">PROMPT 1 OF 7</div>
+        <h2 class="prompt-text" id="promptText"></h2>
+        <div class="hint">▼ rarer answers sink deeper ▼</div>
+      </div>
+      <div class="feedback" id="feedback" aria-live="polite"></div>
+      <div class="mp-progress hidden" id="mpProgress"></div>
+    </section>
+
+    <!-- Result -->
+    <section class="screen hidden" id="screenResult">
+      <div class="result">
+        <div class="result-icon" id="resultIcon"></div>
+        <div class="result-tier" id="resultTier"></div>
+        <div class="result-answer" id="resultAnswer"></div>
+        <div class="result-points" id="resultPoints"></div>
+        <div class="result-flavor" id="resultFlavor"></div>
+        <div class="result-wait hidden" id="resultWait"></div>
+      </div>
+      <button class="big-btn small" id="nextBtn">DESCEND ▼</button>
+    </section>
+
+    <!-- End -->
+    <section class="screen hidden" id="screenEnd">
+      <div class="eyebrow">DIVE COMPLETE</div>
+      <div class="end-depth" id="endDepth"></div>
+      <div class="end-zone" id="endZone"></div>
+      <div class="end-score" id="endScore"></div>
+      <div class="end-landmark" id="endLandmark"></div>
+      <ol class="log" id="endLog"></ol>
+      <div class="stats" id="endStats"></div>
+      <div class="end-actions">
+        <button class="big-btn small" id="againBtn">▼ DIVE AGAIN ▼</button>
+        <button class="ghost-btn" id="homeBtn">Surface</button>
+      </div>
+    </section>
+
+    <!-- Multiplayer: home / room browser -->
+    <section class="screen hidden" id="screenMp" data-idle="true" data-noquit="true">
+      <div class="eyebrow">MULTIPLAYER</div>
+      <h2 class="screen-title">Dive together</h2>
+
+      <div class="panel mp-card join-banner hidden" id="linkJoin">
+        <div class="card-title">Joining room <b id="linkJoinCode"></b></div>
+        <p class="muted">Pick a name and hop in.</p>
+      </div>
+
+      <label class="field">
+        <span>Your name</span>
+        <input id="mpName" maxlength="20" placeholder="e.g. Captain Krill" autocomplete="nickname" />
+      </label>
+
+      <div class="panel mp-card" id="joinCodeCard">
+        <div class="card-title">Join with a code</div>
+        <form class="row" id="joinCodeForm" autocomplete="off">
+          <input id="joinCode" maxlength="5" placeholder="ABCDE" class="code-input" autocapitalize="characters" spellcheck="false" />
+          <button class="small-btn" type="submit" id="joinCodeBtn">JOIN</button>
+        </form>
+      </div>
+
+      <div class="panel mp-card" id="createCard">
+        <div class="card-title">Create a room</div>
+        <form id="createForm" autocomplete="off">
+          <input id="roomName" maxlength="40" placeholder="Room name (optional)" />
+          <input id="roomPass" maxlength="32" placeholder="Password (optional, makes it private)" />
+          <button class="small-btn wide" type="submit" id="createBtn">CREATE ROOM</button>
+        </form>
+      </div>
+
+      <div class="panel mp-card" id="browserCard">
+        <div class="card-title row-between">Open rooms <button class="link-btn" id="refreshRooms" type="button">refresh</button></div>
+        <ul class="room-list" id="roomList"><li class="muted">Looking for rooms…</li></ul>
+      </div>
+
+      <div class="mp-error" id="mpError" role="alert"></div>
+      <button class="ghost-btn" id="mpBackBtn">Back</button>
+    </section>
+
+    <!-- Multiplayer: lobby -->
+    <section class="screen hidden" id="screenLobby" data-idle="true" data-noquit="true">
+      <div class="eyebrow" id="lobbyEyebrow">ROOM</div>
+      <h2 class="screen-title" id="lobbyName"></h2>
+      <div class="panel mp-card">
+        <div class="card-title">Invite divers</div>
+        <div class="row">
+          <input id="shareLink" readonly />
+          <button class="small-btn" id="copyLink" type="button">COPY</button>
+        </div>
+        <p class="muted" id="shareHint"></p>
+      </div>
+      <div class="panel mp-card">
+        <div class="card-title" id="lobbyCount">Divers</div>
+        <ul class="player-list" id="lobbyPlayers"></ul>
+      </div>
+      <button class="big-btn" id="mpStartBtn">▼ START DIVE ▼</button>
+      <p class="muted center" id="lobbyWait"></p>
+      <button class="ghost-btn" id="lobbyLeave">Leave room</button>
+    </section>
+
+    <!-- Multiplayer: scoreboard after each prompt -->
+    <section class="screen hidden" id="screenBoard">
+      <div class="eyebrow" id="boardEyebrow"></div>
+      <h2 class="screen-title" id="boardPrompt"></h2>
+      <div class="best" id="boardBest"></div>
+      <ol class="board" id="boardList"></ol>
+      <button class="big-btn small" id="boardNext">NEXT PROMPT ▼</button>
+      <p class="muted center" id="boardWait"></p>
+    </section>
+
+    <!-- Multiplayer: final standings -->
+    <section class="screen hidden" id="screenFinal">
+      <div class="eyebrow">DIVE COMPLETE</div>
+      <h2 class="screen-title" id="finalWinner"></h2>
+      <ol class="standings" id="finalStandings"></ol>
+      <div class="card-title left">The hidden gems</div>
+      <ol class="log" id="finalLog"></ol>
+      <div class="end-actions">
+        <button class="big-btn small" id="mpAgainBtn">▼ DIVE AGAIN ▼</button>
+        <button class="ghost-btn" id="finalLeave">Leave room</button>
+      </div>
+      <p class="muted center" id="finalWait"></p>
+    </section>
+  </main>
+
+  <dialog id="pwDialog" class="panel">
+    <form method="dialog" id="pwForm">
+      <div class="card-title">This room is locked</div>
+      <p class="muted">Enter the room password.</p>
+      <input id="pwInput" maxlength="32" autocomplete="off" />
+      <div class="row end">
+        <button class="ghost-btn" value="cancel" formnovalidate>Cancel</button>
+        <button class="small-btn" value="ok" id="pwOk">JOIN</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Answer bar -->
+  <form class="answer-bar hidden" id="answerBar" autocomplete="off">
+    <div class="timer" id="timer">
+      <svg viewBox="0 0 44 44" aria-hidden="true">
+        <circle class="timer-bg" cx="22" cy="22" r="19" />
+        <circle class="timer-fg" id="timerRing" cx="22" cy="22" r="19" />
+      </svg>
+      <span id="timerNum">25</span>
+    </div>
+    <input id="answerInput" type="text" placeholder="type an answer…" maxlength="60"
+           autocapitalize="off" autocorrect="off" spellcheck="false" disabled />
+    <button type="submit" class="dive-btn" id="diveBtn" disabled>DIVE</button>
+  </form>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script src="questions.js"></script>
+  <script src="game.js"></script>
+  <script src="mp.js"></script>
+</body>
+</html>
