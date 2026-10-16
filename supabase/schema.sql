@@ -1,5 +1,6 @@
 -- Krillion multiplayer backend (Supabase project "krillion-multiplayer").
 -- Already applied to the live project; kept here so it can be recreated from scratch.
+-- Later changes live in supabase/migrations/ (apply them in order after this file).
 --
 -- Model: clients can READ rooms/players/answers (and get realtime updates), but every
 -- WRITE goes through the functions below, which check a per-player secret token.

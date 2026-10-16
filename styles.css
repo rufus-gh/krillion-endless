@@ -373,3 +373,12 @@ button { font: inherit; cursor: pointer; }
 .dig-info p { margin: 8px 0 4px; }
 .dig-bar { height: 10px; position: relative; background: linear-gradient(90deg, #2b8cc0 0 12.7%, #5a4636 12.7% 16.4%, #7a2a10 16.4% 23.6%, #a53c12 23.6% 34.5%, #e07a18 34.5% 45.5%, #fff1c0 45.5% 60%, #e07a18 60% 70.9%, #a53c12 70.9% 81.8%, #7a2a10 81.8% 89.1%, #5a4636 89.1% 92.7%, #2b8cc0 92.7%); }
 .dig-fill { position: absolute; top: -3px; bottom: -3px; right: 0; left: 0; background: rgba(4,8,15,0.7); border-left: 3px solid #fff; box-shadow: -2px 0 8px rgba(255,255,255,0.7); }
+
+/* Multiplayer room mode + dig race */
+.room-modes { margin-bottom: 6px; }
+.room-modes button:disabled { cursor: default; }
+.room-modes button:disabled:not(.on) { opacity: 0.45; }
+.end-actions .room-modes { flex-basis: 100%; }
+#screenFinal.breakthrough #finalEyebrow { color: var(--landmark); }
+#screenFinal.breakthrough #finalWinner { color: var(--landmark); text-shadow: 0 0 18px rgba(255, 170, 60, 0.55); }
+.pill.dig { color: var(--landmark); }

@@ -175,10 +175,11 @@
   // ---------- Modes ----------
   // Classic: every dive starts at the surface. Dig to China: your depth carries over between
   // dives, and past the trench floor you drill on through the Earth to the other side.
+  // In a multiplayer room, the room's mode and your tunnel there (see mp.js) apply instead.
   let mode = store.get("mode", "classic");
-  const digOn = () => mode === "dig" && !isMp();
+  const digOn = () => (isMp() ? window.KrillMP.dig() : mode === "dig");
   const digState = () => store.get("dig", { pts: 0, trips: 0 });
-  const base = () => (digOn() ? digState().pts : 0);
+  const base = () => (isMp() ? window.KrillMP.tunnel() : digOn() ? digState().pts : 0);
 
   // Depth in points -> what the HUD shows.
   function depthLabel(pts) {
@@ -529,7 +530,7 @@
   // Shared with mp.js
   window.Krill = {
     TIERS, TIER_ORDER, MISS, METRES_PER_POINT, SECONDS_PER_PROMPT, PROMPTS_PER_DIVE, RULER_PX_PER_M,
-    el, store, show, goHome, buildIndex, match, drawPrompts, tierColor, escapeHtml, zoneFor, depthLabel,
+    el, store, show, goHome, buildIndex, match, drawPrompts, tierColor, escapeHtml, zoneFor, depthLabel, placeName,
     setDepthVisual, animateCounters, setTimerDisplay, startTimer, stopTimer, rejectGuess, showVerdict, endDescent,
     get depth() { return currentDepth; },
   };

@@ -489,9 +489,30 @@
     }
   }
 
+  // Other players' drills in a multiplayer dig race, each in its own tunnel beside yours.
+  let mates = [];
+  function drawMateTunnels(t, cx) {
+    const top = Math.max(0, Math.round(rowAtPts(SEABED)));
+    mates.forEach((m, i) => {
+      const x = cx + (i % 2 ? 1 : -1) * 14 * (1 + (i >> 1));
+      const at = Math.round(rowAtPts(Math.min(m.pts, END)));
+      const end = Math.min(h, at, Math.round(rowAtPts(FAR_SEABED)));
+      if (end > top) {
+        ctx.fillStyle = "rgba(10,6,4,0.6)"; ctx.fillRect(x - 4, top, 9, end - top);
+        ctx.fillStyle = m.color; ctx.globalAlpha = 0.35; ctx.fillRect(x - 5, top, 1, end - top); ctx.fillRect(x + 5, top, 1, end - top); ctx.globalAlpha = 1;
+      }
+      if (m.pts > SEABED - 2 && m.pts < FAR_SEABED && at > -20 && at < h + 20) {
+        const spin = Math.floor(t * 4 + i) % 2;
+        const d = sprite("drill", { g: "#3b4652", y: m.color, k: "#13202e", s: spin ? "#c9d3dc" : "#7d8a96", S: spin ? "#7d8a96" : "#c9d3dc" });
+        ctx.drawImage(d, x - 5, at - d.height + 3);
+      }
+    });
+  }
+
   function drawTunnel(t) {
     if (!dig) return;
     const cx = Math.round((W / 2 - 30) / P), you = Math.round(rowAtPts(cam));
+    drawMateTunnels(t, cx);
     const top = Math.max(0, Math.round(rowAtPts(SEABED)));
     const end = Math.min(you, Math.round(rowAtPts(FAR_SEABED)));
     if (end <= top) return;
@@ -579,6 +600,8 @@
     PX_PER_PT, ROUTE, SEABED, CENTRE, FAR_SEABED, END,
     init, goTo, layerAt, kmAt,
     onCamera(fn) { listeners.push(fn); },
+    // [{ pts, color }] for other players' drills; [] to clear.
+    setMates(list) { mates = list; },
     setDig(on) { if (dig !== !!on) { dig = !!on; if (factsTrack) buildFacts(); } },
     get cam() { return cam; },
   };

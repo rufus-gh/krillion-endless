@@ -170,6 +170,14 @@
         <div class="card-title" id="lobbyCount">Divers</div>
         <ul class="player-list" id="lobbyPlayers"></ul>
       </div>
+      <div class="panel mp-card">
+        <div class="card-title">Mode</div>
+        <div class="modes room-modes" id="lobbyModes" role="group" aria-label="Room mode">
+          <button type="button" data-mode="classic">CLASSIC</button>
+          <button type="button" data-mode="dig">DIG TO CHINA</button>
+        </div>
+        <p class="muted" id="lobbyModeNote"></p>
+      </div>
       <p class="shared-note">Same answer as someone else? You each get half points.</p>
       <button class="big-btn" id="mpStartBtn">▼ START DIVE ▼</button>
       <p class="muted center" id="lobbyWait"></p>
@@ -188,12 +196,17 @@
 
     <!-- Multiplayer: final standings -->
     <section class="screen hidden" id="screenFinal">
-      <div class="eyebrow">DIVE COMPLETE</div>
+      <div class="eyebrow" id="finalEyebrow">DIVE COMPLETE</div>
       <h2 class="screen-title" id="finalWinner"></h2>
+      <p class="muted center" id="finalRace"></p>
       <ol class="standings" id="finalStandings"></ol>
       <div class="card-title left">The hidden gems</div>
       <ol class="log" id="finalLog"></ol>
       <div class="end-actions">
+        <div class="modes room-modes" id="finalModes" role="group" aria-label="Room mode">
+          <button type="button" data-mode="classic">CLASSIC</button>
+          <button type="button" data-mode="dig">DIG TO CHINA</button>
+        </div>
         <button class="big-btn small" id="mpAgainBtn">▼ DIVE AGAIN ▼</button>
         <button class="ghost-btn" id="finalLeave">Leave room</button>
       </div>

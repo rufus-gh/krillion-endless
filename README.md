@@ -57,4 +57,16 @@ Click **Multiplayer** on the title screen. No account is needed; you just pick a
 - **Shared answers get half points**, like in Stop. When two or more players give the same answer to a prompt, each of them gets half that answer's points (rounded up). The database stores full points; each client applies the halving once the prompt is revealed.
 - **Other divers appear on the depth ruler** beside you, with their name and total depth. During a prompt they stay at their previous depth so answers aren't given away early.
 
-The backend is a Supabase project (`krillion-multiplayer`). Its URL and public anon key are in `config.js`, and the full database schema is in `supabase/schema.sql`. Clients can only read room state; every change goes through database functions that check each player's secret token. Answers are matched in the browser against `questions.js`, so this is built for friendly games, not tournaments.
+### Dig to China race
+
+In the lobby, or between dives, the host can switch the room from **Classic** to **Dig to China**. In a dig room:
+
+- **Tunnels carry over between dives in that room.** At the start of each dive the server banks everyone's points from the last dive (after halving shared answers) into their tunnel (`players.tunnel_pts`). This is separate from your solo tunnel, which stays in your browser.
+- **Everyone's drill shows on the canvas**, each in its own tunnel beside yours, and on the depth ruler.
+- **The first player to reach the far surface (5,500 pts) wins.** The dive ends at the scoreboard where someone breaks through, even mid-dive, and everyone gets the breakthrough screen. If two players break through on the same prompt, the higher total wins, then whoever answered first.
+- **The next dive starts a new race**, with every tunnel filled in. Switching modes also fills in every tunnel.
+- If you leave and join again as a new player, you start from the surface. Refreshing the page keeps your tunnel.
+
+The goal is set in `_dig_goal()` in the migration and must match `Scene.END` in `scene.js`. The server also applies the half-points rule (in `_dive_pts()`) when it banks tunnels and decides the winner, so if you change that rule, change it in both `mp.js` `applyShared()` and the SQL.
+
+The backend is a Supabase project (`krillion-multiplayer`). Its URL and public anon key are in `config.js`. The database is `supabase/schema.sql` plus the files in `supabase/migrations/`, applied in order. To change the live database, run a migration in the project's SQL editor **before** pushing client code that depends on it. Clients can only read room state; every change goes through database functions that check each player's secret token. Answers are matched in the browser against `questions.js`, so this is built for friendly games, not tournaments.
