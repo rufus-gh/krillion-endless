@@ -1,0 +1,1 @@
+KRILLION_ANSWERS(1415,{"plankton":["Can't Slow Down","Lionel Richie|Lionel|Richie","Dancing on the Ceiling","Renaissance"],"tooClever":["Back to Front","Coming Home"],"schooler":["Just for You","Louder Than Words","Time","Truly: The Love Songs|The Love Songs","Tuskegee","Just Go"],"rare":["Encore"],"deepCut":["Gold","Symphonica in Rosso"],"gem":["The Definitive Collection"]});

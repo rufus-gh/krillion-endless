@@ -1,0 +1,1 @@
+KRILLION_ANSWERS(280,{"plankton":["Fight Club","The Social Network","Seven|Se7en","The Curious Case of Benjamin Button"],"tooClever":["Gone Girl","Alien 3|Alien III|Alien³"],"schooler":["Zodiac","The Girl with the Dragon Tattoo","Panic Room","The Game","Mank","The Killer"],"rare":[],"deepCut":[],"gem":["The Further Mis-Adventures of Cliff Booth|The Adventures of Cliff Booth"]});

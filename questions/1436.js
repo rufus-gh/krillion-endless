@@ -1,0 +1,1 @@
+KRILLION_ANSWERS(1436,{"plankton":["Loud","Music of the Sun","Good Girl Gone Bad","Talk That Talk"],"tooClever":["Unapologetic","Rated R"],"schooler":["A Girl Like Me","Anti","Good Girl Gone Bad: The Remixes|The Remixes","Rated R: Remixed|Remixed","Good Girl Gone Bad: Reloaded|Reloaded","3 CD Collector's Set"],"rare":[],"deepCut":["Hotness"],"gem":["Barbadian Superstardom"]});

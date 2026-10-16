@@ -1,0 +1,1 @@
+KRILLION_ANSWERS(271,{"plankton":["Parasite|Gisaengchung","Snowpiercer","Memories of Murder|Sarinui chueok","Mickey 17"],"tooClever":["Okja","The Host|Monster|Mutant|Goemul"],"schooler":["Mother|Madeo","Barking Dogs Never Bite|Dog of Flanders|A Higher Animal","Tokyo!","Ally|The Valley","Incoherence","Influenza"],"rare":[],"deepCut":[],"gem":["White Man|Baeksekin"]});

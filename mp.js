@@ -303,6 +303,12 @@
         renderLive();
         return;
       }
+      // Answers load on demand; fetch this game's prompts before entering a round.
+      if (room.status !== "lobby" && (room.prompt_ids || []).some((id) => PROMPTS[id] && !PROMPTS[id].answers)) {
+        K.loadPrompts(room.prompt_ids).then(render, (e) => { console.error(e); setTimeout(render, 2000); });
+        renderLive();
+        return;
+      }
       phaseKey = key;
       if (room.status === "lobby") enterLobby();
       else if (room.status === "playing") enterRound();
@@ -417,6 +423,7 @@
     }
     el.eyebrow.textContent = `PROMPT ${room.round + 1} OF ${room.prompt_ids.length}`;
     el.promptText.textContent = p.prompt;
+    K.clearSuggestion();
     el.feedback.textContent = "";
     el.feedback.className = "feedback";
     el.input.value = "";
@@ -431,9 +438,7 @@
 
   function onSubmit(raw) {
     if (!compiled || !room || room.status !== "playing") return;
-    const hit = K.match(compiled, raw);
-    if (!hit) return K.rejectGuess(raw);
-    submit(hit);
+    K.judge(compiled, raw, submit);
   }
 
   async function submit(hit) {
@@ -572,7 +577,7 @@
     // A dig race can end mid-dive, so only list the prompts that were played.
     ui.finalLog.innerHTML = room.prompt_ids.slice(0, room.round + 1).map((pid, round) => {
       const p = PROMPTS[pid];
-      const gem = (p.answers.gem[0] || "").split("|")[0];
+      const gem = p.gem || "";
       const finders = answers.filter((a) => a.round === round && a.tier === "gem").map((a) => (players.find((x) => x.id === a.player_id) || {}).name).filter(Boolean);
       const mine = answerFor(me.player_id, round);
       const c = mine && mine.tier ? K.tierColor(mine.tier) : "var(--t-miss)";

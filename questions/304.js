@@ -1,0 +1,1 @@
+KRILLION_ANSWERS(304,{"plankton":["The Hurt Locker","Zero Dark Thirty","K-19: The Widowmaker|The Widowmaker","Point Break"],"tooClever":["Strange Days","A House of Dynamite"],"schooler":["Detroit","Near Dark","Blue Steel","The Weight of Water","The Loveless","Last Days"],"rare":[],"deepCut":[],"gem":["Mission Zero"]});

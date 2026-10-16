@@ -1,0 +1,1 @@
+KRILLION_ANSWERS(1333,{"plankton":["Beloved","The Bluest Eye","Jazz","Love"],"tooClever":["Home","Paradise"],"schooler":["Sula","Tar Baby","God Help the Child|The Wrath of Children","Recitatif","Desdemona","The Black Book"],"rare":[],"deepCut":[],"gem":["Dreaming Emmett"]});

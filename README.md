@@ -26,28 +26,31 @@ python3 -m http.server 5173
 
 The GitHub repo is connected to the Vercel project `krillion-endless`. A push to `main` deploys to https://krillion-endless.vercel.app, and pushes to other branches get their own preview URLs.
 
-## Adding prompts
+## Prompts
 
-Edit `questions.js` and add an object to the array:
+The bank holds 1,680 prompts and about 337,000 accepted answers. They were generated from [Wikidata](https://www.wikidata.org) (CC0): for each prompt, every valid answer is ranked by how many Wikipedia language editions cover it. The well-known answers land in the low tiers and the obscure ones sink deeper. Aliases (alternative names, surnames for people, short titles) are accepted too.
+
+`questions.js` lists the prompts. Each prompt's answers live in `questions/<index>.js` and are loaded only when that prompt is dealt, so the page doesn't download all 300k+ answers up front. The generator lives in [`tools/question-bank`](tools/question-bank).
+
+To add a prompt by hand, append `{ prompt: "Name a ...", gem: "..." }` to the end of `questions.js`, then create `questions/<its index>.js`:
 
 ```js
-{
-  prompt: "Name a ...",
-  answers: {
-    plankton:  [...], // 10 pts: the obvious answers
-    tooClever: [...], // 15 pts: the "obscure" pick everyone thinks of
-    schooler:  [...], // 30 pts
-    rare:      [...], // 60 pts
-    deepCut:   [...], // 85 pts
-    gem:       ["..."], // 100 pts: exactly one hidden gem
-  },
-}
+KRILLION_ANSWERS(1680, {
+  plankton:  [...], // 10 pts: the obvious answers
+  tooClever: [...], // 15 pts: the "obscure" pick everyone thinks of
+  schooler:  [...], // 30 pts
+  rare:      [...], // 60 pts
+  deepCut:   [...], // 85 pts
+  gem:       ["..."], // 100 pts: exactly one hidden gem (the same as `gem` in questions.js)
+});
 ```
 
 - Use `"Display name|alias|other alias"` to accept several spellings. The first one is the name players see.
-- Matching already ignores case, accents, punctuation, spaces, a leading "the", and simple plurals, and it forgives small typos (1 letter for 5–8 character answers, 2 letters for longer ones).
+- Matching ignores case, accents, punctuation, spaces, a leading "the", and simple plurals.
+- **Near misses get a "Did you mean …?"** instead of a rejection. This covers typos, a surname or one word of a longer title, and the start of a long name. Press Enter again, or click the suggestion, to submit it as that answer. Typing anything else dismisses it.
 - If an answer appears in two tiers, the lower tier wins and a warning is printed in the browser console.
 - Prompts are dealt from a shuffle bag, so you see every prompt before any of them repeats.
+- Multiplayer rooms refer to prompts by their position in the array, so add new prompts at the end.
 
 ## Multiplayer
 

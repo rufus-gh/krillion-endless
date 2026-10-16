@@ -66,58 +66,119 @@
       .join("");
   }
 
-  function levenshtein(a, b, max) {
+  // Edit distance with adjacent swaps counted as one edit ("pikahcu" -> "pikachu").
+  function editDistance(a, b, max) {
     if (Math.abs(a.length - b.length) > max) return max + 1;
-    let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+    let prev2 = null, prev = Array.from({ length: b.length + 1 }, (_, i) => i);
     for (let i = 1; i <= a.length; i++) {
       const cur = [i];
       let rowMin = i;
       for (let j = 1; j <= b.length; j++) {
         cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+        if (prev2 && i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) cur[j] = Math.min(cur[j], prev2[j - 2] + 1);
         rowMin = Math.min(rowMin, cur[j]);
       }
       if (rowMin > max) return max + 1;
+      prev2 = prev;
       prev = cur;
     }
     return prev[b.length];
   }
 
-  const typoAllowance = (len) => (len < 5 ? 0 : len < 9 ? 1 : 2);
+  // How many edits a guess of this length can be off by and still get a "did you mean".
+  const typoAllowance = (len) => (len < 3 ? 0 : len < 6 ? 1 : len < 10 ? 2 : 3);
+  const STOPWORDS = new Set(["and", "the", "of", "in", "on", "de", "la", "le", "von", "van", "for", "with"]);
 
   function buildIndex(p) {
     const index = new Map();
+    const words = new Map(); // single words inside multi-word answers ("gogh", "potter"), for suggestions only
     let gem = null;
     for (const tier of TIER_ORDER) {
       for (const entry of p.answers[tier] || []) {
         const variants = entry.split("|");
         const display = variants[0];
         if (tier === "gem" && !gem) gem = display;
+        const hit = { display, tier };
         for (const v of variants) {
           const key = normalize(v);
           if (!key) continue;
           if (index.has(key)) {
             if (index.get(key).display !== display) console.warn(`[${p.prompt}] duplicate answer "${v}" (already ${index.get(key).tier})`);
-            continue;
+          } else {
+            index.set(key, hit);
           }
-          index.set(key, { display, tier });
+          const parts = v.split(/[\s\-–:,/]+/);
+          if (parts.length < 2) continue;
+          for (const w of parts) {
+            const wk = normalize(w);
+            if (wk.length >= 4 && !STOPWORDS.has(wk) && !words.has(wk)) words.set(wk, hit);
+          }
         }
       }
     }
-    return { index, gem };
+    return { index, words, gem };
   }
 
+  // Exact match after normalising (case, accents, punctuation, "the", plurals).
   function match(compiled, input) {
     const key = normalize(input);
     if (!key) return null;
-    if (compiled.index.has(key)) return compiled.index.get(key);
-    let best = null, bestD = Infinity;
-    for (const [k, v] of compiled.index) {
+    return compiled.index.get(key) || null;
+  }
+
+  // Closest answer to a guess that didn't match exactly: typos, a surname or one word of a longer
+  // title, or the start of a long name. Lower score is closer; ties go to the more common answer.
+  function suggest(compiled, input) {
+    const key = normalize(input);
+    if (key.length < 3) return null;
+    let best = null, bestScore = Infinity;
+    const consider = (hit, score) => { if (score < bestScore) { best = hit; bestScore = score; } };
+    for (const [k, hit] of compiled.index) {
       const max = typoAllowance(Math.min(k.length, key.length));
-      if (max === 0) continue;
-      const d = levenshtein(key, k, max);
-      if (d <= max && d < bestD) { best = v; bestD = d; }
+      const d = max ? editDistance(key, k, max) : max + 1;
+      if (d <= max) consider(hit, d);
+      else if (key.length >= 4 && k.startsWith(key)) consider(hit, 2.5 + (k.length - key.length) / 100);
+    }
+    if (bestScore > 1 && key.length >= 4) {
+      for (const [w, hit] of compiled.words) {
+        if (w === key) consider(hit, 1.5);
+        else if (key.length >= 5 && editDistance(key, w, 1) <= 1) consider(hit, 2);
+      }
     }
     return best;
+  }
+
+  // Decide what a submitted guess means. An exact match is accepted; a near miss offers
+  // "Did you mean …?", and pressing Enter again (or clicking it) accepts that answer.
+  let pending = null;
+  function judge(compiled, raw, accept) {
+    if (pending && pending.compiled === compiled && pending.raw === raw) {
+      const { hit } = pending;
+      clearSuggestion();
+      return accept(hit);
+    }
+    clearSuggestion();
+    const hit = match(compiled, raw);
+    if (hit) return accept(hit);
+    const near = suggest(compiled, raw);
+    if (near) return offerSuggestion(compiled, raw, near, accept);
+    rejectGuess(raw);
+  }
+
+  function offerSuggestion(compiled, raw, hit, accept) {
+    pending = { compiled, raw, hit, accept };
+    el.feedback.className = "feedback suggest";
+    el.feedback.innerHTML = `Did you mean <button type="button" class="suggest-btn">“${escapeHtml(hit.display)}”</button>? <span class="suggest-key">press enter</span>`;
+    el.feedback.querySelector("button").addEventListener("click", () => {
+      if (pending && pending.hit === hit && !el.input.disabled) { clearSuggestion(); accept(hit); }
+    });
+    el.input.focus();
+  }
+
+  function clearSuggestion() {
+    if (!pending) return;
+    pending = null;
+    if (el.feedback.classList.contains("suggest")) { el.feedback.textContent = ""; el.feedback.className = "feedback"; }
   }
 
   // ---------- Storage (best effort) ----------
@@ -129,6 +190,31 @@
   function shuffle(a) {
     for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
     return a;
+  }
+
+  // Each prompt's answers live in questions/<id>.js and are loaded on demand with a script tag
+  // (works from file:// too). The file calls KRILLION_ANSWERS(id, answers).
+  const answerLoads = new Map();
+  window.KRILLION_ANSWERS = (id, answers) => {
+    const p = window.KRILLION_PROMPTS[id];
+    if (p) p.answers = answers;
+  };
+  function loadPrompts(ids) {
+    return Promise.all(ids.map((id) => {
+      const p = window.KRILLION_PROMPTS[id];
+      if (!p) return Promise.reject(new Error(`unknown prompt ${id}`));
+      if (p.answers) return Promise.resolve();
+      if (!answerLoads.has(id)) {
+        answerLoads.set(id, new Promise((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = `questions/${id}.js`;
+          s.onload = () => { s.remove(); p.answers ? resolve() : reject(new Error(`questions/${id}.js didn't load`)); };
+          s.onerror = () => { s.remove(); answerLoads.delete(id); reject(new Error(`couldn't load questions/${id}.js`)); };
+          document.head.appendChild(s);
+        }));
+      }
+      return answerLoads.get(id);
+    }));
   }
 
   // Shuffle bag so you cycle through the whole bank before seeing repeats.
@@ -371,8 +457,20 @@
     (mode === "dig" ? el.digStart : el.start).focus({ preventScroll: true });
   }
 
-  function startDive() {
+  let starting = false;
+  async function startDive() {
+    if (starting) return;
+    starting = true;
     const ids = drawPrompts(PROMPTS_PER_DIVE);
+    try {
+      await loadPrompts(ids);
+    } catch (e) {
+      console.error(e);
+      alert("Couldn't load the prompts. Check your connection and try again.");
+      return;
+    } finally {
+      starting = false;
+    }
     dive = {
       prompts: ids.map((id) => {
         const p = window.KRILLION_PROMPTS[id];
@@ -393,6 +491,7 @@
     renderPips();
     el.eyebrow.textContent = `PROMPT ${dive.i + 1} OF ${dive.prompts.length}`;
     el.promptText.textContent = p.prompt;
+    clearSuggestion();
     el.feedback.textContent = "";
     el.feedback.className = "feedback";
     el.input.value = "";
@@ -431,9 +530,7 @@
     if (!raw) return;
     if (isMp()) return window.KrillMP.onSubmit(raw);
     if (!dive) return;
-    const hit = match(dive.prompts[dive.i], raw);
-    if (hit) return finishPrompt(hit);
-    rejectGuess(raw);
+    judge(dive.prompts[dive.i], raw, finishPrompt);
   }
 
   function rejectGuess(raw) {
@@ -446,6 +543,7 @@
   }
 
   function finishPrompt(hit) {
+    clearSuggestion();
     stopTimer();
     el.input.disabled = true;
     el.diveBtn.disabled = true;
@@ -590,12 +688,16 @@
     if (isMp()) return window.KrillMP.confirmLeave();
     if (confirm("Abandon this dive and return to the surface?")) goHome();
   });
-  el.input.addEventListener("input", () => { if (el.feedback.classList.contains("bad")) { el.feedback.textContent = ""; el.feedback.className = "feedback"; } });
+  el.input.addEventListener("input", () => {
+    if (pending && el.input.value.trim() !== pending.raw) clearSuggestion();
+    if (el.feedback.classList.contains("bad")) { el.feedback.textContent = ""; el.feedback.className = "feedback"; }
+  });
 
   // Shared with mp.js
   window.Krill = {
     TIERS, TIER_ORDER, MISS, syncTheme, METRES_PER_POINT, SECONDS_PER_PROMPT, PROMPTS_PER_DIVE, RULER_PX_PER_M,
-    el, store, show, goHome, buildIndex, match, drawPrompts, tierColor, escapeHtml, zoneFor, depthLabel, placeName,
+    el, store, show, goHome, loadPrompts, buildIndex, match, suggest, judge, clearSuggestion, drawPrompts, tierColor, escapeHtml, zoneFor,
+    depthLabel, placeName,
     setDepthVisual, animateCounters, setTimerDisplay, startTimer, stopTimer, rejectGuess, showVerdict, endDescent,
     get depth() { return currentDepth; },
   };

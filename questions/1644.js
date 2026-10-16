@@ -1,0 +1,1 @@
+KRILLION_ANSWERS(1644,{"plankton":["The End","The Ghouls","The Head","The Past"],"tooClever":["The Target","The Beginning"],"schooler":["The Demon in the Snow","The Golden Rule","The Innovator","The Profligate","The Radio","The Trap"],"rare":["The Handoff"],"deepCut":["The Strip","The Wrangler"],"gem":["The Other Player"]});

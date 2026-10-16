@@ -1,3 +1,5 @@
 .vercel
 .claude/
 .DS_Store
+tools/question-bank/cache/
+__pycache__/

@@ -1,0 +1,1 @@
+KRILLION_ANSWERS(311,{"plankton":["Heat","Collateral","Public Enemies","The Last of the Mohicans|Le Dernier des Mohicans"],"tooClever":["The Insider","Ali"],"schooler":["Miami Vice","Blackhat","Manhunter","Ferrari","Thief","The Keep"],"rare":[],"deepCut":["The Jericho Mile","Heat 2"],"gem":["L.A. Takedown|L.A. Hit"]});

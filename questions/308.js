@@ -1,0 +1,1 @@
+KRILLION_ANSWERS(308,{"plankton":["The Sixth Sense|6th Sense","The Village","Split","Unbreakable"],"tooClever":["Signs","After Earth"],"schooler":["The Last Airbender","Glass","The Happening","Lady in the Water","The Visit|Sundowning","Trap"],"rare":["Knock at the Cabin","Old","Wide Awake"],"deepCut":["Remain","Labor of Love"],"gem":["Praying with Anger"]});

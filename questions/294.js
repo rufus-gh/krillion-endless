@@ -1,0 +1,1 @@
+KRILLION_ANSWERS(294,{"plankton":["Ghostbusters","Ghostbusters II","No Strings Attached","Twins"],"tooClever":["Kindergarten Cop","Evolution"],"schooler":["Junior","Dave","Six Days Seven Nights","My Super Ex-Girlfriend","Stripes","Fathers' Day"],"rare":["Draft Day","Legal Eagles"],"deepCut":["Cannibal Girls","Foxy Lady"],"gem":["Meatballs"]});
