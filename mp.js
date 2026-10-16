@@ -233,7 +233,34 @@
     if (r.error || p.error || a.error) return;
     if (!r.data) { cleanup(); openHome(); showError("That room has closed."); return; }
     room = r.data; players = p.data; answers = a.data;
+    applyShared();
     render();
+  }
+
+  // Shared answers (like in Stop): once a prompt is revealed, everyone who gave the same
+  // answer gets half points. The server stores full points; every client applies the
+  // halving to the same answers table, so everyone sees the same scores.
+  function revealed(round) {
+    return round < room.round || room.status === "reveal" || room.status === "finished";
+  }
+  function applyShared() {
+    const groups = {};
+    for (const a of answers) {
+      a.full = a.full ?? a.pts;
+      a.sharedWith = [];
+      a.pts = a.full;
+      if (a.tier && a.answer && revealed(a.round)) (groups[a.round + "|" + a.answer.toLowerCase()] ||= []).push(a);
+    }
+    for (const g of Object.values(groups)) {
+      if (g.length < 2) continue;
+      for (const a of g) {
+        a.pts = Math.ceil(a.full / 2);
+        a.sharedWith = g.filter((b) => b !== a).map((b) => (players.find((p) => p.id === b.player_id) || {}).name).filter(Boolean);
+      }
+    }
+    for (const p of players) {
+      p.score = answers.filter((a) => a.player_id === p.id).reduce((s, a) => s + a.pts, 0);
+    }
   }
 
   // Server phases advance when any client nudges them; nudge as soon as a deadline passes.
@@ -433,7 +460,7 @@
       return `<li style="--tier:${c};--c:hsl(${hue(pl.id)} 80% 68%)" class="${pl.id === me.player_id ? "me" : ""}">
         <span class="dot"></span>
         <span class="who">${esc(pl.name)}${pl.id === me.player_id ? " (you)" : ""}</span>
-        <span class="ans">${a && a.answer ? `“${esc(a.answer)}”` : `<i>no answer</i>`}</span>
+        <span class="ans">${a && a.answer ? `“${esc(a.answer)}”` : `<i>no answer</i>`}${a && a.sharedWith && a.sharedWith.length ? `<span class="shared">½ shared with ${a.sharedWith.map(esc).join(", ")}</span>` : ""}</span>
         <span class="tier">${tier ? K.TIERS[tier].name : K.MISS.name}</span>
         <span class="pts">+${a ? a.pts : 0}<small>${(pl.score * K.METRES_PER_POINT).toLocaleString()}m total</small></span>
       </li>`;
@@ -493,7 +520,7 @@
       const c = mine && mine.tier ? K.tierColor(mine.tier) : "var(--t-miss)";
       return `<li style="--tier:${c}">
         <span class="q">${esc(p.prompt)}</span>
-        <span class="a">you: ${mine && mine.answer ? esc(mine.answer) : "<i>no answer</i>"}</span>
+        <span class="a">you: ${mine && mine.answer ? esc(mine.answer) : "<i>no answer</i>"}${mine && mine.sharedWith && mine.sharedWith.length ? ` <span class="shared">½ shared with ${mine.sharedWith.map(esc).join(", ")}</span>` : ""}</span>
         <span class="pts">+${mine ? mine.pts : 0}<small>${mine && mine.tier ? K.TIERS[mine.tier].name : K.MISS.name}</small></span>
         <span class="g">one in a krillion: <b>${esc(gem)}</b>${finders.length ? ` · found by ${finders.map(esc).join(", ")}` : ""}</span>
       </li>`;

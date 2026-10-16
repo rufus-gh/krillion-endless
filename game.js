@@ -134,11 +134,12 @@
   // ---------- DOM ----------
   const $ = (id) => document.getElementById(id);
   const el = {
-    ocean: $("ocean"), fauna: $("fauna"), bubbles: $("bubbles"), rulerTrack: $("rulerTrack"),
+    ocean: $("ocean"), rulerTrack: $("rulerTrack"),
     hud: $("hud"), hudDepth: $("hudDepth"), hudScore: $("hudScore"), pips: $("pips"), hudPrompt: $("hudPrompt"),
     quit: $("quitBtn"),
     title: $("screenTitle"), play: $("screenPlay"), result: $("screenResult"), end: $("screenEnd"),
     tierTable: $("tierTable"), titleStats: $("titleStats"), diveNum: $("diveNum"), start: $("startBtn"),
+    modes: $("modes"), digInfo: $("digInfo"), digBar: $("digBar"), digText: $("digText"), digReset: $("digReset"),
     eyebrow: $("promptEyebrow"), promptText: $("promptText"), feedback: $("feedback"),
     resultIcon: $("resultIcon"), resultTier: $("resultTier"), resultAnswer: $("resultAnswer"), resultPoints: $("resultPoints"),
     resultFlavor: $("resultFlavor"), next: $("nextBtn"),
@@ -171,60 +172,57 @@
     return `<svg viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges">${rects}</svg>`;
   }
 
-  // ---------- Backdrop ----------
-  function hexToRgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
-  function depthColor(m) {
-    for (let i = 1; i < DEPTH_COLORS.length; i++) {
-      const [m1, c1] = DEPTH_COLORS[i];
-      if (m <= m1) {
-        const [m0, c0] = DEPTH_COLORS[i - 1];
-        const t = (m - m0) / (m1 - m0);
-        const a = hexToRgb(c0), b = hexToRgb(c1);
-        return `rgb(${a.map((v, k) => Math.round(v + (b[k] - v) * t)).join(",")})`;
-      }
-    }
-    return DEPTH_COLORS[DEPTH_COLORS.length - 1][1];
+  // ---------- Modes ----------
+  // Classic: every dive starts at the surface. Dig to China: your depth carries over between
+  // dives, and past the trench floor you drill on through the Earth to the other side.
+  let mode = store.get("mode", "classic");
+  const digOn = () => mode === "dig" && !isMp();
+  const digState = () => store.get("dig", { pts: 0, trips: 0 });
+  const base = () => (digOn() ? digState().pts : 0);
+
+  // Depth in points -> what the HUD shows.
+  function depthLabel(pts) {
+    if (!digOn() || pts < 100) return Math.round(pts * METRES_PER_POINT).toLocaleString() + "m";
+    const km = Scene.kmAt(pts);
+    return (km < 100 ? km.toFixed(1) : Math.round(km).toLocaleString()) + "km";
   }
   const zoneFor = (m) => (m >= MAX_DEPTH ? { name: "Trench Floor" } : ZONES.find((z) => m < z.to));
+  function placeName(pts) {
+    if (pts < Scene.SEABED) return zoneFor(pts * METRES_PER_POINT).name;
+    if (pts >= Scene.END) return "The Other Side";
+    return Scene.layerAt(pts).name;
+  }
 
+  const PX_PER_PT = RULER_PX_PER_M * METRES_PER_POINT;
+  let rulerMode = "";
   function buildRuler() {
+    const dig = digOn();
+    if (rulerMode === String(dig)) return;
+    rulerMode = String(dig);
     const track = el.rulerTrack;
-    track.style.setProperty("--len", MAX_DEPTH * RULER_PX_PER_M + "px");
+    const len = dig ? Scene.END : MAX_DEPTH / METRES_PER_POINT;
+    track.style.setProperty("--len", len * PX_PER_PT + "px");
     let html = "";
-    for (let m = 0; m <= MAX_DEPTH; m += 20) {
-      const labelled = m % 100 === 0;
-      html += `<div class="tick${labelled ? " major" : ""}" style="top:${m * RULER_PX_PER_M}px">${labelled ? `<span>${m ? "-" : ""}${m.toLocaleString()}m</span>` : ""}</div>`;
+    const step = dig ? 10 : 2, major = dig ? 50 : 10;
+    for (let pts = 0; pts <= len; pts += step) {
+      const labelled = pts % major === 0;
+      html += `<div class="tick${labelled ? " major" : ""}" style="top:${pts * PX_PER_PT}px">${labelled ? `<span>${pts ? "-" : ""}${depthLabel(pts)}</span>` : ""}</div>`;
     }
-    for (const l of LANDMARKS) {
-      html += `<div class="landmark" style="top:${l.m * RULER_PX_PER_M}px"><span>${l.name} · ${l.m.toLocaleString()}m</span></div>`;
-    }
+    const marks = dig
+      ? Scene.ROUTE.slice(1).map((l) => ({ pts: l.from, name: l.name }))
+      : LANDMARKS.map((l) => ({ pts: l.m / METRES_PER_POINT, name: `${l.name} · ${l.m.toLocaleString()}m` }));
+    for (const l of marks) html += `<div class="landmark" style="top:${l.pts * PX_PER_PT}px"><span>${l.name}</span></div>`;
     track.innerHTML = html;
   }
 
-  function spawnFauna() {
-    let html = "";
-    for (let i = 0; i < 9; i++) {
-      const dir = Math.random() < 0.5 ? "" : " left";
-      html += `<div class="fish${dir}" style="top:${55 + Math.random() * 40}vh;animation-duration:${18 + Math.random() * 22}s;animation-delay:-${Math.random() * 30}s;transform:scale(${0.6 + Math.random()})"></div>`;
-    }
-    el.fauna.innerHTML = html;
-    let bub = "";
-    for (let i = 0; i < 14; i++) {
-      const s = 3 + Math.random() * 6;
-      bub += `<div class="bubble" style="left:${Math.random() * 92}vw;width:${s}px;height:${s}px;animation-duration:${8 + Math.random() * 10}s;animation-delay:-${Math.random() * 18}s"></div>`;
-    }
-    el.bubbles.innerHTML = bub;
-  }
-
   let currentDepth = 0;
-  function setDepthVisual(m) {
+  // m: depth of this dive in metres. dur: how long the camera takes to get there.
+  function setDepthVisual(m, dur = 900) {
     currentDepth = m;
+    Scene.setDig(digOn());
+    buildRuler();
     document.dispatchEvent(new CustomEvent("krill:depth", { detail: m }));
-    el.ocean.style.backgroundColor = depthColor(m);
-    el.ocean.classList.toggle("submerged", m > 0);
-    el.rulerTrack.style.transform = `translateY(${-m * RULER_PX_PER_M}px)`;
-    // Fish thin out as it gets darker.
-    el.fauna.style.opacity = String(Math.max(0.15, 1 - m / 5000));
+    Scene.goTo(Math.min(Scene.END, base() + m / METRES_PER_POINT), dur);
   }
 
   let counterAnim = 0;
@@ -236,7 +234,7 @@
       const e = 1 - Math.pow(1 - t, 3);
       const s = Math.round(fromScore + (toScore - fromScore) * e);
       el.hudScore.textContent = s;
-      el.hudDepth.textContent = (s * METRES_PER_POINT).toLocaleString() + "m";
+      el.hudDepth.textContent = depthLabel(base() + s);
       if (t < 1) counterAnim = requestAnimationFrame(step);
     };
     counterAnim = requestAnimationFrame(step);
@@ -274,6 +272,29 @@
       ? `dives ${st.dives} · best ${(st.best * METRES_PER_POINT).toLocaleString()}m · avg ${Math.round((st.total / st.dives) * METRES_PER_POINT).toLocaleString()}m`
       : "";
     el.diveNum.textContent = `ENDLESS DIVE #${st.dives + 1}`;
+    for (const b of el.modes.querySelectorAll("button")) b.classList.toggle("on", b.dataset.mode === mode);
+    el.digInfo.classList.toggle("hidden", mode !== "dig");
+    if (mode === "dig") {
+      const d = digState();
+      const pct = Math.floor((d.pts / Scene.END) * 100);
+      el.digBar.style.left = (d.pts / Scene.END) * 100 + "%";
+      el.digText.textContent = d.pts
+        ? `Your tunnel: ${depthLabel(d.pts)} · ${placeName(d.pts)} · ${pct}% of the way through`
+        : `Start at the surface. Every point digs deeper, and your tunnel carries over between dives.`;
+      if (d.trips) el.digText.textContent += ` · trips through the Earth: ${d.trips}`;
+      el.digReset.classList.toggle("hidden", !d.pts);
+      el.diveNum.textContent = `DIG #${st.dives + 1}`;
+    }
+  }
+
+  function setMode(m) {
+    if (m === mode) return;
+    mode = m;
+    store.set("mode", m);
+    el.hudScore.textContent = "0";
+    setDepthVisual(0, 1200);
+    el.hudDepth.textContent = depthLabel(base());
+    renderTitle();
   }
 
   function goHome() {
@@ -282,8 +303,8 @@
     dive = null;
     el.ocean.classList.remove("mp");
     el.hudScore.textContent = "0";
-    el.hudDepth.textContent = "0m";
     setDepthVisual(0);
+    el.hudDepth.textContent = depthLabel(base());
     renderTitle();
     show(el.title);
     el.start.focus({ preventScroll: true });
@@ -301,8 +322,8 @@
       results: [],
     };
     el.hudScore.textContent = "0";
-    el.hudDepth.textContent = "0m";
     setDepthVisual(0);
+    el.hudDepth.textContent = depthLabel(base());
     startPrompt();
   }
 
@@ -391,7 +412,7 @@
     el.resultTier.style.color = color;
     el.resultAnswer.textContent = hit ? `“${hit.display}”` : "—";
     el.resultPoints.innerHTML = hit
-      ? `<b>+${info.pts} PTS</b> · sink ${(info.pts * METRES_PER_POINT).toLocaleString()}m`
+      ? `<b>+${info.pts} PTS</b> · ${digOn() && base() + after > Scene.SEABED ? `down to ${depthLabel(Math.min(Scene.END, base() + after))}` : `sink ${(info.pts * METRES_PER_POINT).toLocaleString()}m`}`
       : `<b>+0 PTS</b> · no descent`;
     el.resultFlavor.textContent = info.flavor;
     el.next.textContent = nextLabel || "";
@@ -408,7 +429,7 @@
       el.resultIcon.classList.remove("pop");
       el.resultIcon.style.animationDuration = dur + "ms";
     }
-    setDepthVisual(after * METRES_PER_POINT);
+    setDepthVisual(after * METRES_PER_POINT, dur || 600);
     animateCounters(before, after, dur || 600);
     clearTimeout(descentTimer);
     descentTimer = setTimeout(() => {
@@ -448,6 +469,23 @@
     el.endLandmark.textContent = passed
       ? `You passed the ${passed.name.toLowerCase()} (${passed.m.toLocaleString()}m)` + (nextL ? ` · next: ${nextL.name.toLowerCase()} at ${nextL.m.toLocaleString()}m` : "")
       : `Next landmark: ${nextL.name.toLowerCase()} at ${nextL.m.toLocaleString()}m`;
+    if (digOn()) {
+      const d = digState();
+      const total = d.pts + dive.score;
+      el.endDepth.textContent = depthLabel(Math.min(total, Scene.END));
+      el.endZone.textContent = placeName(total).toUpperCase();
+      if (total >= Scene.END) {
+        d.trips++; d.pts = 0;
+        el.endLandmark.textContent = "You dug straight through the Earth and came out in the Indian Ocean. Next dig starts from home.";
+      } else {
+        d.pts = total;
+        const next = Scene.ROUTE.find((l) => l.from > total);
+        el.endLandmark.textContent = `${Math.floor((total / Scene.END) * 100)}% of the way through` +
+          (next ? ` · ${next.from - total} pts to the ${next.name.toLowerCase()}` : ` · ${Scene.END - total} pts to the surface`);
+      }
+      store.set("dig", d);
+      el.hudDepth.textContent = el.endDepth.textContent;
+    }
 
     el.endLog.innerHTML = dive.results.map((r) => {
       const c = r.tier ? tierColor(r.tier) : "var(--t-miss)";
@@ -470,6 +508,14 @@
 
   // ---------- Wire up ----------
   el.start.addEventListener("click", startDive);
+  el.modes.addEventListener("click", (e) => { const b = e.target.closest("button[data-mode]"); if (b) setMode(b.dataset.mode); });
+  el.digReset.addEventListener("click", () => {
+    if (!confirm("Fill in your tunnel and start again from the surface?")) return;
+    store.set("dig", { ...digState(), pts: 0 });
+    setDepthVisual(0, 1500);
+    el.hudDepth.textContent = depthLabel(0);
+    renderTitle();
+  });
   el.again.addEventListener("click", startDive);
   el.home.addEventListener("click", goHome);
   el.next.addEventListener("click", () => { if (!isMp() && performance.now() - resultShownAt > 300) nextPrompt(); });
@@ -483,12 +529,12 @@
   // Shared with mp.js
   window.Krill = {
     TIERS, TIER_ORDER, MISS, METRES_PER_POINT, SECONDS_PER_PROMPT, PROMPTS_PER_DIVE, RULER_PX_PER_M,
-    el, store, show, goHome, buildIndex, match, drawPrompts, tierColor, escapeHtml, zoneFor,
+    el, store, show, goHome, buildIndex, match, drawPrompts, tierColor, escapeHtml, zoneFor, depthLabel,
     setDepthVisual, animateCounters, setTimerDisplay, startTimer, stopTimer, rejectGuess, showVerdict, endDescent,
     get depth() { return currentDepth; },
   };
 
-  buildRuler();
-  spawnFauna();
+  Scene.init();
+  Scene.onCamera((cam) => { el.rulerTrack.style.transform = `translateY(${-cam * PX_PER_PT}px)`; });
   goHome();
 })();

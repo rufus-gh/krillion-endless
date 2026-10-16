@@ -36,7 +36,6 @@ button { font: inherit; cursor: pointer; }
 .ocean {
   position: fixed; inset: 0;
   background: var(--water);
-  transition: background-color var(--descent-dur, 1.6s) ease-in-out;
   overflow: hidden;
 }
 .ocean::after { /* scanlines + vignette */
@@ -45,68 +44,17 @@ button { font: inherit; cursor: pointer; }
     repeating-linear-gradient(0deg, rgba(0,0,0,0.08) 0 1px, transparent 1px 3px),
     radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.45));
 }
-.sky {
-  position: absolute; left: 0; right: 0; top: 0; height: 52vh;
-  background: linear-gradient(#5aa9d6 0%, #9fd0ea 55%, #e9f3f2 100%);
-  transition: transform var(--descent-dur, 1.6s) ease-in-out;
+.sea { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
+/* Fun facts ride along with the camera, like the ruler */
+.facts { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.facts-track { position: absolute; left: 0; right: 0; top: 52vh; will-change: transform; }
+.fact {
+  position: absolute; left: 14px; transform: translateY(-50%); white-space: nowrap;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 1px; color: rgba(225, 240, 250, 0.55);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.7);
 }
-.sun {
-  position: absolute; right: 14%; top: 22vh; width: 64px; height: 64px;
-  background: #ffd36b; box-shadow: 0 0 40px 18px rgba(255, 220, 120, 0.55);
-  border-radius: 50%;
-}
-.cloud {
-  position: absolute; height: 22px; background: #fff; border-radius: 4px;
-  box-shadow: 18px -12px 0 0 #fff, 40px -4px 0 2px #fff, -16px 4px 0 -2px #f3f8fb;
-  opacity: 0.95; animation: drift 60s linear infinite;
-}
-.c1 { width: 110px; top: 16vh; left: 12%; }
-.c2 { width: 80px; top: 30vh; left: 55%; animation-duration: 80s; }
-.c3 { width: 140px; top: 38vh; left: -10%; animation-duration: 95s; }
-@keyframes drift { from { transform: translateX(-20vw); } to { transform: translateX(120vw); } }
-
-.waterline {
-  position: absolute; left: 0; right: 0; top: 52vh; height: 6px;
-  background: #2a7fb4; transition: transform var(--descent-dur, 1.6s) ease-in-out;
-}
-.boat {
-  position: absolute; left: 28%; bottom: 4px; width: 56px; height: 12px;
-  background: #13202e; clip-path: polygon(0 30%, 100% 30%, 88% 100%, 8% 100%);
-}
-.boat::before { /* mast + flag */
-  content: ""; position: absolute; left: 20px; bottom: 8px; width: 3px; height: 26px; background: #13202e;
-  box-shadow: 3px 0 0 0 transparent;
-}
-.boat::after {
-  content: ""; position: absolute; left: 23px; bottom: 26px; width: 12px; height: 8px; background: var(--pink);
-}
-.ocean.submerged .sky { transform: translateY(-100%); }
-.ocean.submerged .waterline { transform: translateY(-60vh); }
-
-.rays {
-  position: absolute; inset: 0; pointer-events: none; opacity: 0.18;
-  background: repeating-linear-gradient(100deg, transparent 0 60px, rgba(255,255,255,0.25) 60px 90px, transparent 90px 170px);
-  mask-image: linear-gradient(transparent 50%, #000 60%, transparent 100%);
-  -webkit-mask-image: linear-gradient(transparent 50%, #000 60%, transparent 100%);
-  transition: opacity 1.6s ease;
-}
-.ocean.submerged .rays { mask-image: linear-gradient(#000, transparent 80%); -webkit-mask-image: linear-gradient(#000, transparent 80%); }
-
-.fauna, .bubbles { position: absolute; inset: 0; pointer-events: none; }
-.fish {
-  position: absolute; width: 18px; height: 7px; background: rgba(5, 12, 22, 0.75);
-  clip-path: polygon(0 50%, 25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%);
-  animation: swim linear infinite;
-}
-.fish::after { content: ""; }
-.fish.left { animation-name: swim-left; }
-@keyframes swim { from { transform: translateX(-10vw); } to { transform: translateX(110vw); } }
-@keyframes swim-left { from { transform: translateX(110vw) scaleX(-1); } to { transform: translateX(-10vw) scaleX(-1); } }
-.bubble {
-  position: absolute; bottom: -10px; width: 6px; height: 6px; border: 1px solid rgba(180, 230, 255, 0.5);
-  border-radius: 50%; animation: rise linear infinite;
-}
-@keyframes rise { to { transform: translateY(-110vh); } }
+.fact.big { font-family: var(--pixel); font-size: 12px; letter-spacing: 3px; color: rgba(255, 214, 130, 0.8); }
+@media (max-width: 900px) { .fact { font-size: 10px; } .fact:not(.big) { display: none; } }
 
 /* ---------- Ruler ---------- */
 /* 0 m and the YOU marker both sit on the waterline (52vh); the track scrolls up as you sink. */
@@ -114,8 +62,7 @@ button { font: inherit; cursor: pointer; }
   position: fixed; right: 0; top: 0; bottom: 0; width: 240px; pointer-events: none; overflow: hidden; z-index: 2;
 }
 .ruler-track {
-  position: absolute; right: 14px; top: 52vh; width: 0;
-  transition: transform var(--descent-dur, 1.4s) cubic-bezier(.45,.05,.35,1);
+  position: absolute; right: 14px; top: 52vh; width: 0; will-change: transform;
 }
 .ruler-track::before { content: ""; position: absolute; right: 0; top: 0; width: 2px; height: var(--len, 14000px); background: rgba(200,225,245,0.35); }
 .tick { position: absolute; right: 0; height: 1px; width: 7px; background: rgba(200, 225, 245, 0.4); }
@@ -192,7 +139,7 @@ button { font: inherit; cursor: pointer; }
   color: #fff; text-shadow: -3px 0 0 var(--pink), 3px 0 0 var(--cyan);
 }
 .subtitle { font-family: var(--pixel); color: var(--cyan); letter-spacing: 8px; font-size: 14px; margin-top: 4px; text-shadow: 0 1px 0 #0b3550; }
-.tagline { color: #2a4d6a; font-size: 13px; letter-spacing: 1px; margin: 10px 0 14vh; font-weight: 700; }
+.tagline { color: #eaf4fb; font-size: 13px; letter-spacing: 1px; margin: 10px 0 14vh; font-weight: 700; text-shadow: 0 1px 0 #0b3550, 0 0 6px rgba(5, 20, 40, 0.6); }
 .howto {
   width: 100%; text-align: left; background: var(--panel); border: 1px solid var(--panel-edge);
   padding: 10px 16px; font-size: 13px; line-height: 1.6; margin-bottom: 14px;
@@ -251,21 +198,6 @@ button { font: inherit; cursor: pointer; }
   100% { transform: translateY(0) rotate(0); }
 }
 
-/* Marine snow streams upward while descending, so you feel the drop */
-.snow {
-  position: absolute; inset: -100vh 0 0; pointer-events: none; opacity: 0;
-  background-image:
-    radial-gradient(1.5px 1.5px at 20px 30px, rgba(210,235,255,0.7), transparent),
-    radial-gradient(1px 1px at 90px 140px, rgba(210,235,255,0.6), transparent),
-    radial-gradient(2px 2px at 160px 60px, rgba(210,235,255,0.5), transparent),
-    radial-gradient(1px 1px at 230px 190px, rgba(210,235,255,0.6), transparent),
-    radial-gradient(1.5px 1.5px at 50px 220px, rgba(210,235,255,0.5), transparent);
-  background-size: 260px 260px;
-  transition: opacity 0.4s ease;
-  animation: snow-rise 0.9s linear infinite paused;
-}
-.ocean.descending .snow { opacity: 1; animation-play-state: running; }
-@keyframes snow-rise { from { transform: translateY(0); } to { transform: translateY(-260px); } }
 .pop { animation: pop 0.5s cubic-bezier(.2,1.6,.4,1) both; }
 @keyframes pop { from { transform: scale(0.6); opacity: 0; } }
 
@@ -423,3 +355,21 @@ button { font: inherit; cursor: pointer; }
 @media (max-width: 520px) {
   .mate span { max-width: 64px; overflow: hidden; text-overflow: ellipsis; right: 4px; top: 4px; font-size: 9px; padding: 0 3px; }
 }
+
+/* Shared answers: half points */
+.shared { display: block; font-family: var(--pixel); font-size: 9px; letter-spacing: 1px; color: var(--landmark); margin-top: 2px; }
+.shared-note { margin: -4px 0 12px; font-size: 11px; color: var(--landmark); letter-spacing: 1px; }
+
+/* Mode switch + Dig to China progress */
+.modes { display: flex; width: 100%; gap: 0; margin-bottom: 10px; }
+.modes button {
+  flex: 1; padding: 10px 6px; background: rgba(8,18,32,0.85); color: var(--dim);
+  border: 1px solid var(--panel-edge); font-family: var(--pixel); font-size: 12px; letter-spacing: 3px;
+}
+.modes button + button { border-left: 0; }
+.modes button.on { background: var(--cyan); color: #04121c; border-color: var(--cyan); }
+.modes button[data-mode="dig"].on { background: var(--landmark); border-color: var(--landmark); color: #2a1404; }
+.dig-info { width: 100%; padding: 12px 14px; margin-bottom: 10px; text-align: left; font-size: 12px; line-height: 1.5; }
+.dig-info p { margin: 8px 0 4px; }
+.dig-bar { height: 10px; position: relative; background: linear-gradient(90deg, #2b8cc0 0 12.7%, #5a4636 12.7% 16.4%, #7a2a10 16.4% 23.6%, #a53c12 23.6% 34.5%, #e07a18 34.5% 45.5%, #fff1c0 45.5% 60%, #e07a18 60% 70.9%, #a53c12 70.9% 81.8%, #7a2a10 81.8% 89.1%, #5a4636 89.1% 92.7%, #2b8cc0 92.7%); }
+.dig-fill { position: absolute; top: -3px; bottom: -3px; right: 0; left: 0; background: rgba(4,8,15,0.7); border-left: 3px solid #fff; box-shadow: -2px 0 8px rgba(255,255,255,0.7); }
