@@ -35,7 +35,7 @@ need = {}
 for s in todo:
     for k, (name, types) in s.get("resolve", {}).items():
         need[(name, tuple(types))] = None
-OVERRIDE = {"Beyoncé": "Q36153", "50 Cent": "Q6060"}
+OVERRIDE = {"Beyoncé": "Q36153", "50 Cent": "Q6060", "Real Madrid CF": "Q8682"}
 keys = [k for k in need if k[0] not in OVERRIDE]
 for k in need:
     if k[0] in OVERRIDE: need[k] = OVERRIDE[k[0]]
@@ -53,6 +53,18 @@ for s in todo:
         w = w.replace("{" + k + "}", q)
     if ok:
         s = dict(s); s["where"] = w; ready.append(s)
+# Only build prompts that pass curation (see curate.py).
+from curate import keep
+ready = [s for s in ready if keep(s["prompt"])]
+# Accept more answers: raise every cap, and for non-people lists also include less-documented items.
+broad = []
+for s in ready:
+    b = dict(s, limit=max(s.get("limit", 500), 2000))
+    if s.get("kind") != "person" and s.get("minsl", 3) > 2:
+        b["minsl"] = 2
+        b["fallback"] = dict(s, limit=b["limit"])
+    broad.append(b)
+ready = broad
 print(f"{len(ready)} specs ready", file=sys.stderr)
 out = build_all(ready, workers=5)
 json.dump(out, open(os.path.join(os.path.dirname(__file__), "cache", "prompts.json"), "w"), ensure_ascii=False)

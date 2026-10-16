@@ -28,14 +28,14 @@ The GitHub repo is connected to the Vercel project `krillion-endless`. A push to
 
 ## Prompts
 
-The bank holds 1,680 prompts and about 337,000 accepted answers. They were generated from [Wikidata](https://www.wikidata.org) (CC0): for each prompt, every valid answer is ranked by how many Wikipedia language editions cover it. The well-known answers land in the low tiers and the obscure ones sink deeper. Aliases (alternative names, surnames for people, short titles) are accepted too.
+The bank holds 1,032 prompts and about 557,000 accepted answers. Prompts are kept broad ("Name a beer brand", "Name a song by Queen"), while the answer lists go deep, so obscure picks still count. They were generated from [Wikidata](https://www.wikidata.org) (CC0): for each prompt, every valid answer is ranked by how many Wikipedia language editions cover it. The well-known answers land in the low tiers and the obscure ones sink deeper. Aliases (alternative names, surnames for people, short titles) are accepted too.
 
-`questions.js` lists the prompts. Each prompt's answers live in `questions/<index>.js` and are loaded only when that prompt is dealt, so the page doesn't download all 300k+ answers up front. The generator lives in [`tools/question-bank`](tools/question-bank).
+`questions.js` lists the prompts. Each prompt's answers live in `questions/<index>.js` and are loaded only when that prompt is dealt, so the page doesn't download every answer up front. The generator lives in [`tools/question-bank`](tools/question-bank).
 
 To add a prompt by hand, append `{ prompt: "Name a ...", gem: "..." }` to the end of `questions.js`, then create `questions/<its index>.js`:
 
 ```js
-KRILLION_ANSWERS(1680, {
+KRILLION_ANSWERS(1032, {
   plankton:  [...], // 10 pts: the obvious answers
   tooClever: [...], // 15 pts: the "obscure" pick everyone thinks of
   schooler:  [...], // 30 pts

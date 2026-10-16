@@ -1,1 +1,0 @@
-KRILLION_ANSWERS(1450,{"plankton":["Hot Fuss","Sam's Town","Day & Age","Sawdust"],"tooClever":["Battle Born","Wonderful Wonderful"],"schooler":["Imploding the Mirage","Live from the Royal Albert Hall","Pressure Machine","Direct Hits","Don't Waste Your Wishes","Rebel Diamonds"],"rare":[],"deepCut":[],"gem":["The Killers Demo|Demo"]});

@@ -32,8 +32,11 @@ def resolve(name, types):
 PAREN = re.compile(r"\s*\([^)]*\)\s*$")
 CODEY = re.compile(r"^[A-Z0-9\-]{1,3}$")
 
+COMPANY = re.compile(r" (Brewery|Breweries|Brewing Company|Brewing Co\.?|Group|International|Holdings|Limited|Ltd\.?|Inc\.?|plc|AG|S\.A\.|N\.V\.)$", re.I)
 def clean_label(l):
     l = NOISE.sub("", PAREN.sub("", l).strip())
+    short = COMPANY.sub("", l).strip()
+    if short != l and len(short) >= 2: l = short
     if l and l[0].islower(): l = l[0].upper() + l[1:]
     return l
 
@@ -43,7 +46,7 @@ LATIN_END = re.compile(r"(um|us|a|is|ae|ii|ensis|ia|es|e|ax|ix|ii|i)$")
 def is_latin(l):
     return bool(LATIN.match(l)) and all(LATIN_END.search(w) for w in l.lower().split())
 GEN_PRE = re.compile(r"^(County|Province of|Region of|State of|City of|Municipality of|Lake|Mount|Mt\.?|Isle of|Gulf of|Bay of|Sea of|Strait of|Cape|Saint|St\.?) ", re.I)
-GEN_SUF = re.compile(r" (Province|Prefecture|County|Municipality|Region|Oblast|Governorate|District|Department|Island|Islands|Airport|International Airport|Castle|Palace|Bridge|Cathedral|Zoo|Museum|River|Lake|Mountain|Mountains|Range|Desert|Sea|Ocean|Falls|Waterfall|Glacier|Canyon|Volcano|Peninsula|Strait|Bay|Gulf|Stadium|Arena|Park|National Park|Tower|Temple|Mosque|Abbey|Church|station|Station|Line|F\.C\.|FC|A\.F\.C\.|AFC|S\.C\.|SC|CF|C\.F\.|Football Club)$")
+GEN_SUF = re.compile(r" (Group|International|Brewery|Breweries|Brewing Company|Brewing Co\.|Brewing|Beer|Distillery|Province|Prefecture|County|Municipality|Region|Oblast|Governorate|District|Department|Island|Islands|Airport|International Airport|Castle|Palace|Bridge|Cathedral|Zoo|Museum|River|Lake|Mountain|Mountains|Range|Desert|Sea|Ocean|Falls|Waterfall|Glacier|Canyon|Volcano|Peninsula|Strait|Bay|Gulf|Stadium|Arena|Park|National Park|Tower|Temple|Mosque|Abbey|Church|station|Station|Line|F\.C\.|FC|A\.F\.C\.|AFC|S\.C\.|SC|CF|C\.F\.|Football Club)$", re.I)
 def variants_for(label, alts, kind, noun=None):
     label = NOISE.sub("", label)
     base = PAREN.sub("", label).strip()
@@ -157,14 +160,15 @@ def tierize(spec, items):
         final.append("|".join(vs))
         e["str"] = final[-1]
     n = len(final)
-    if n < spec.get("min", 20): return None
-    a = clamp(round(n * 0.06), 4, 12)
-    b = clamp(round(n * 0.04), 2, 8)
-    c = clamp(round(n * 0.18), 6, 60)
-    d = clamp(round(n * 0.25), 6, 150)
+    if n < spec.get("min", 12): return None
+    if n >= 40:
+        sizes = [clamp(round(n * 0.06), 4, 12), clamp(round(n * 0.04), 2, 8), clamp(round(n * 0.18), 6, 60), clamp(round(n * 0.25), 6, 150)]
+    else:  # short closed lists (South American countries, Australian states): scale every tier down
+        sizes = [max(1, round(n * 0.3)), max(1, round(n * 0.1)), max(1, round(n * 0.25)), max(1, round(n * 0.15))]
+        while n - sum(sizes) < 2 and max(sizes) > 1:
+            sizes[sizes.index(max(sizes[2:]) if max(sizes[2:]) > 1 else max(sizes))] -= 1
+    a, b, c, d = sizes
     tiers = {"plankton": final[:a], "tooClever": final[a:a+b], "schooler": final[a+b:a+b+c], "rare": final[a+b+c:a+b+c+d], "deepCut": final[a+b+c+d:]}
-    if len(tiers["deepCut"]) < 3:  # tiny list: steal from rare
-        tiers["deepCut"] = tiers["rare"][-3:] + tiers["deepCut"]; tiers["rare"] = tiers["rare"][:-3]
     dc = tiers["deepCut"]
     if not dc: return None
     proper = {e["str"] for e in entries if e["proper"] and noun not in e["disp"].lower()}
@@ -179,7 +183,12 @@ def tierize(spec, items):
 def build_all(specs, workers=2):
     out = [None] * len(specs)
     def run(i):
-        try: return run1(i)
+        try:
+            r = run1(i)
+            if r[1] is None and specs[i].get("fallback"):  # broadened query failed: use the original one
+                fb = dict(specs[i]["fallback"]); specs[i] = fb
+                r = run1(i)
+            return r
         except Exception as e: return i, None, f"error {e!r}"
     def run1(i):
         s = specs[i]

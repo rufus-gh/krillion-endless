@@ -7,6 +7,27 @@ import re
 for p in data:
     m = re.match(r"^Name a club that has played in (?:the )?(.+)$", p["prompt"])
     if m: p["prompt"] = f"Name a club in {m.group(1)}" if m.group(1).startswith("the") else f"Name {'an' if m.group(1)[0] in 'AEIO' else 'a'} {m.group(1)} club"
+sys.path.insert(0, here)
+from curate import keep
+data = [p for p in data if keep(p["prompt"])]
+from fixes import EXTRA
+from core import normalize
+for p in data:
+    extra = EXTRA.get(p["prompt"])
+    if not extra: continue
+    have = {normalize(v) for t in p["answers"].values() for e in t for v in e.split("|")}
+    for tier, entries in extra.items():
+        for e in entries:
+            keys = [normalize(v) for v in e.split("|")]
+            if not any(k in have for k in keys):
+                p["answers"][tier].append(e)
+            else:  # already there: just add any missing aliases to that answer
+                for t in p["answers"].values():
+                    for j, cur in enumerate(t):
+                        ck = {normalize(v) for v in cur.split("|")}
+                        if ck & set(keys):
+                            t[j] = "|".join(cur.split("|") + [v for v, k in zip(e.split("|"), keys) if k not in ck and k not in have])
+            have.update(keys)
 seen, out = set(), []
 for p in data:
     if p["prompt"] in seen: continue

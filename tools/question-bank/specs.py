@@ -38,7 +38,7 @@ add("Name a breakfast cereal", inst_sub("Q215035"), limit=400, minsl=1)
 add("Name a fast food chain", inst_sub("Q18509232"), limit=500, minsl=3)
 add("Name a restaurant chain", inst_sub("Q18534714"), limit=500, minsl=3)
 add("Name a chocolate bar brand", inst_sub("Q1500032"), limit=400, minsl=1)
-add("Name a beer brand", inst("Q10838"), limit=500, minsl=2)
+add("Name a beer brand", "{ ?item wdt:P31/wdt:P279* wd:Q15075508 } UNION { ?item wdt:P31/wdt:P279* wd:Q131734 } UNION { ?item wdt:P31/wdt:P279* wd:Q44 }", limit=2000, minsl=1)
 
 CUISINES = ["Japan", "China", "India", "Italy", "France", "Mexico", "Thailand", "South Korea", "Vietnam", "Spain", "Greece",
             "Turkey", "Germany", "United Kingdom", "United States of America", "Brazil", "Peru", "Indonesia", "Philippines",

@@ -9,7 +9,7 @@ FIX = {
  "Name a pudding": {"Q13261": "pudding"}, "Name a street food": {"Q1201902": "street food"}, "Name a fermented food": {"Q1435347": "fermented food"},
  "Name a porridge": {"Q216163": "porridge"}, "Name a grape variety used for wine": {"Q10978": "grape variety"},
  "Name a breakfast cereal": {"Q215035": "breakfast cereal"}, "Name a restaurant chain": {"Q18534714": "restaurant chain"},
- "Name a chocolate bar brand": {"Q1500032": "chocolate bar"}, "Name a beer brand": {"Q10838": "beer brand"},
+ "Name a chocolate bar brand": {"Q1500032": "chocolate bar"},
  "Name a bird of prey": {"Q21140": "Accipitriformes"}, "Name a deer or antelope": {"Q7363": "Cervidae"},
  "Name a duck, goose or swan": {"Q25432": "Anatidae"}, "Name an owl": {"Q25263": "Strigiformes"}, "Name a palm tree": {"Q15041": "Arecaceae"},
  "Name a tree": None, "Name a cattle breed": {"Q16889133": "cattle breed"}, "Name a chicken breed": {"Q4141838": "chicken breed"},
@@ -51,3 +51,20 @@ RENAME = {"Name a high jumper": "Name a middle-distance runner", "Name a pole va
 DESC = {"Name a middle-distance runner": "runner|athlet", "Name a triple jumper": "jump|athlet", "Name a bodybuilder": "bodybuild", "Name a racing driver": "driver|racing",
         "Name a mountaineer": "mountaineer|climber", "Name a track cyclist": "cycl"}
 WHERE = {"Name a Palme d'Or winning film": "?item wdt:P166 wd:Q179808; wdt:P31/wdt:P279* wd:Q11424.","Name a Pokémon": "?item wdt:P31/wdt:P279* wd:Q3966183."}
+
+# Hand-added answers for things Wikidata knows about but files under a generic class
+# (e.g. Tooheys New is only "a drink"). Merged in by emit.py; entries already present are skipped.
+EXTRA = {
+    "Name a beer brand": {
+        "schooler": ["Tooheys|Tooheys New|Tooheys Extra Dry|Tooheys Old", "Carlton Draught|Carlton|Carlton Dry|Carlton United", "Bud Light",
+                     "Modelo|Modelo Especial|Negra Modelo", "Peroni Nastro Azzurro|Peroni", "Tuborg", "Busch|Busch Light", "Hahn|Hahn Super Dry|Hahn Premium Light",
+                     "Great Northern|Great Northern Brewing", "James Squire", "Efes", "Tennent's|Tennents|Tennent's Lager", "Krombacher", "Harbin",
+                     "Snow|Snow Beer", "Kozel|Velkopopovický Kozel", "Murphy's|Murphys", "Victoria Bitter|VB", "XXXX|Fourex|XXXX Gold|XXXX Bitter"],
+        "rare": ["Pure Blonde", "Boag's|Boags|James Boag", "Cascade|Cascade Premium Light", "Little Creatures", "Stone & Wood|Stone and Wood",
+                 "Swan Lager|Swan Draught", "Emu Bitter|Emu Export|Emu", "West End|West End Draught", "Furphy", "Keystone Light|Keystone",
+                 "Natural Light|Natty Light", "Boddingtons", "Fuller's London Pride|London Pride|Fuller's", "Spitfire", "Doom Bar", "Spaten",
+                 "Budvar|Budweiser Budvar", "Tyskie", "Quilmes", "Sleeman", "Lion Red", "Harp|Harp Lager", "Hite", "Cass", "Anchor Steam",
+                 "Fat Tire", "Shiner|Shiner Bock", "Schlitz", "Mahou", "Alhambra", "Super Bock", "Coors Banquet"],
+        "deepCut": ["Waikato|Waikato Draught", "OB|OB Lager", "Hamm's|Hamms", "Iron City", "Natty Daddy", "Carta Blanca"],
+    },
+}
