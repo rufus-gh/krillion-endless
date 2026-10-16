@@ -59,19 +59,39 @@
         <table class="tiers" id="tierTable"></table>
       </details>
 
-      <div class="modes" id="modes" role="group" aria-label="Mode">
-        <button type="button" data-mode="classic">CLASSIC</button>
-        <button type="button" data-mode="dig">DIG TO CHINA</button>
-      </div>
-      <div class="panel dig-info hidden" id="digInfo">
+      <div class="stats" id="titleStats"></div>
+      <button class="big-btn" id="startBtn">▼ BEGIN DESCENT ▼</button>
+      <button class="big-btn alt dig-btn" id="digBtn">DIG TO CHINA</button>
+      <button class="big-btn alt" id="mpBtn">MULTIPLAYER</button>
+      <div class="dive-num" id="diveNum"></div>
+    </section>
+
+    <!-- Dig to China: its own game, with a tunnel that carries over between digs -->
+    <section class="screen hidden" id="screenDig" data-idle="true" data-noquit="true">
+      <h1 class="logo">DIGGER</h1>
+      <div class="subtitle">DIG TO CHINA</div>
+      <p class="tagline">dig after dig · rarer answers dig deeper</p>
+
+      <details class="howto">
+        <summary>How to play</summary>
+        <ul>
+          <li><b>7 prompts</b> per dig, <b>25 seconds</b> each. Name <b>one</b> valid thing for each.</li>
+          <li>Rarer answers dig deeper. Your tunnel carries over from one dig to the next.</li>
+          <li>Go through the crust, the mantle and the core and out the other side: <b>5,000 points</b>, about 20 digs.</li>
+          <li>Spoiler: straight down from most of the US isn't China. It's the Indian Ocean.</li>
+        </ul>
+        <table class="tiers" id="digTierTable"></table>
+      </details>
+
+      <div class="panel dig-info" id="digInfo">
         <div class="dig-bar"><div class="dig-fill" id="digBar"></div></div>
         <p id="digText"></p>
         <button class="link-btn hidden" id="digReset" type="button">fill in the tunnel</button>
       </div>
-      <div class="stats" id="titleStats"></div>
-      <button class="big-btn" id="startBtn">▼ BEGIN DESCENT ▼</button>
-      <button class="big-btn alt" id="mpBtn">MULTIPLAYER</button>
-      <div class="dive-num" id="diveNum"></div>
+      <div class="stats" id="digStats"></div>
+      <button class="big-btn" id="digStartBtn">▼ START DIGGING ▼</button>
+      <button class="ghost-btn back-btn" id="digBackBtn">Back</button>
+      <div class="dive-num" id="digNum"></div>
     </section>
 
     <!-- Play -->
@@ -79,7 +99,7 @@
       <div class="panel prompt-card">
         <div class="eyebrow" id="promptEyebrow">PROMPT 1 OF 7</div>
         <h2 class="prompt-text" id="promptText"></h2>
-        <div class="hint">▼ rarer answers sink deeper ▼</div>
+        <div class="hint" id="promptHint">▼ rarer answers sink deeper ▼</div>
       </div>
       <div class="feedback" id="feedback" aria-live="polite"></div>
       <div class="mp-progress hidden" id="mpProgress"></div>
@@ -100,7 +120,7 @@
 
     <!-- End -->
     <section class="screen hidden" id="screenEnd">
-      <div class="eyebrow">DIVE COMPLETE</div>
+      <div class="eyebrow" id="endEyebrow">DIVE COMPLETE</div>
       <div class="end-depth" id="endDepth"></div>
       <div class="end-zone" id="endZone"></div>
       <div class="end-score" id="endScore"></div>

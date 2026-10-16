@@ -8,10 +8,13 @@
   const PX_PER_PT = 20;   // matches the ruler: 2 px per metre, 10 m per point
   const ANCHOR = 0.52;    // the YOU line sits at 52% of the viewport height
 
-  // ---------- The route: down through the ocean, through the core, out the other side ----------
+  // ---------- The routes ----------
+  // Classic is the ocean alone: 0 pts at the waves down to the trench floor at SEABED.
+  // Dig to China starts on dry land and goes down through the Earth and out the other side.
+  const SEABED = 700;
   const DOWN = [
-    { key: "ocean", name: "Ocean",        pts: 700, km: 7 },
-    { key: "crust", name: "Crust",        pts: 200, km: 35 },
+    { key: "soil",  name: "Soil & Bedrock", pts: 100, km: 2 },
+    { key: "crust", name: "Crust",        pts: 300, km: 33 },
     { key: "upper", name: "Upper Mantle", pts: 400, km: 625 },
     { key: "lower", name: "Lower Mantle", pts: 600, km: 2230 },
     { key: "outer", name: "Outer Core",   pts: 600, km: 2260 },
@@ -35,12 +38,13 @@
       }
     }
   }
-  const SEABED = 700;
   const CENTRE = DOWN.reduce((s, l) => s + l.pts, 0);
   const FAR_SEABED = ROUTE[ROUTE.length - 1].from;
   const END = ROUTE[ROUTE.length - 1].to;
 
   const layerAt = (pts) => ROUTE.find((l) => pts < l.to) || ROUTE[ROUTE.length - 1];
+  const layer = (key, up = false) => ROUTE.find((l) => l.key === key && l.up === up);
+  const CORE_TOP = layer("outer").from, CORE_BOTTOM = layer("outer", true).to;   // the liquid-iron outer core, both sides
   function kmAt(pts) {
     const l = layerAt(Math.max(0, Math.min(END, pts)));
     return l.kmFrom + ((Math.max(0, Math.min(END, pts)) - l.from) / l.pts) * l.km;
@@ -55,6 +59,7 @@
   const hex = (h) => { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
   const STOPS = {
     ocean: [[0, "#2b8cc0"], [0.03, "#1f6ea3"], [0.14, "#154a78"], [0.4, "#0b2340"], [0.7, "#081628"], [1, "#04080f"]],
+    soil:  [[0, "#6b4a2c"], [0.12, "#5a3b22"], [0.5, "#4d3626"], [1, "#433227"]],
     crust: [[0, "#3a3029"], [0.06, "#4b3a2c"], [0.5, "#3e2d22"], [1, "#2e1d15"]],
     upper: [[0, "#4a2214"], [1, "#7a2a10"]],
     lower: [[0, "#6a210e"], [1, "#8e3610"]],
@@ -73,10 +78,11 @@
     return stops[stops.length - 1][1];
   }
   function groundColor(pts) {
+    if (!dig) return pts < SEABED ? ramp(STOPS.ocean, pts / SEABED) : ramp(STOPS.crust, Math.min(1, (pts - SEABED) / 200));
     const l = layerAt(pts);
     let t = depthIn(l, pts);
     // The far ocean is shallow: use the top part of the ocean ramp.
-    if (l.key === "ocean" && l.up) t *= l.km / 7;
+    if (l.key === "ocean") t *= l.km / 7;
     return ramp(STOPS[l.key], Math.max(0, Math.min(1, t)));
   }
   const SKY = [[0, hex("#eef6f3")], [0.35, hex("#a6d4ec")], [1, hex("#4f9fd2")]];
@@ -175,6 +181,7 @@
       ".....s.....",
     ] },
     bird:   { rows: ["b...b", ".b.b.", "..b.."] },
+    shovel: { rows: ["..m..", ".mmm.", ".mmm.", "..w..", "..w..", "..w..", "..w..", "..w..", ".www."].reverse() },
   };
   const spriteCache = new Map();
   function sprite(name, pal, flipX = false, flipY = false) {
@@ -200,11 +207,14 @@
   function populate() {
     const r = rng(7);
     const between = (a, b) => a + r() * (b - a);
-    const add = (o) => things.push({ x: r(), vx: 0, bob: r() * 6.28, ...o });
+    // sea: only in classic (the ocean dive). dig: only in Dig to China.
+    let world = "sea";
+    const add = (o) => things.push({ x: r(), vx: 0, bob: r() * 6.28, world, ...o });
     const fishCols = [["#ffcf5a", "#d9932c"], ["#7fe0e8", "#3a9fb4"], ["#ff8a6b", "#c4523e"], ["#b9f27a", "#6faa3d"], ["#f2f2f2", "#9fb5c4"]];
 
-    // Sunlit shallows: schools of fish, near side and far side.
+    // Sunlit shallows: schools of fish, in the ocean dive and in the Indian Ocean at the far end of the dig.
     for (const [a, b, n] of [[1, 18, 9], [18, 70, 7], [END - 60, END - 1, 9]]) {
+      world = a > SEABED ? "dig" : "sea";
       for (let i = 0; i < n; i++) {
         const [c1, c2] = fishCols[Math.floor(r() * fishCols.length)];
         const dir = r() < 0.5 ? -1 : 1, y = between(a, b), x = r(), speed = 6 + r() * 10, count = 3 + Math.floor(r() * 6);
@@ -214,6 +224,7 @@
         }
       }
     }
+    world = "sea";
     for (let i = 0; i < 12; i++) {
       const hue = r() < 0.5 ? ["#ff7fc8", "#ffc2e6"] : ["#7fe8ff", "#d0f8ff"];
       add({ kind: "jelly", y: between(16, 150), vx: (r() - 0.5) * 3, pal: { p: hue[0], l: hue[1] }, glow: hue[0], float: true });
@@ -227,20 +238,29 @@
     }
     add({ kind: "titanic", y: 380, x: 0.6, pal: { h: "#5b3a2a", w: "#ffd98a", s: "#7a4a30" }, glow: "#ffcf7a" });
     for (let i = 0; i < 10; i++) add({ kind: "cuke", y: between(430, 690), vx: (r() - 0.5) * 1.5, pal: { p: "#c46b8f" } });
-    // Seabed (both sides)
+    // Seabed: the trench floor in the ocean dive, and the Indian Ocean floor at the end of the dig.
     for (const bed of [SEABED, FAR_SEABED]) {
+      world = bed === SEABED ? "sea" : "dig";
       for (let i = 0; i < 9; i++) add({ kind: "worm", y: bed - 0.2, x: 0.05 + r() * 0.9, pal: { r: "#e0454f", w: "#e8e2d0" }, anchor: "bottom" });
     }
     // Inside the Earth (both sides use the same layer ranges, mirrored).
+    world = "dig";
     const both = (a, b) => (r() < 0.5 ? between(a, b) : 2 * CENTRE - between(a, b));
     const bone = { b: "#c9b99a", e: "#2a1e16", w: "#c9b99a" };
-    for (let i = 0; i < 22; i++) {
+    const crust = layer("crust"), upper = layer("upper"), inner = layer("inner");
+    for (let i = 0; i < 9; i++) add({ kind: "worm", y: between(4, 40), pal: { r: "#d9757d", w: "#e8b8a8" }, flip: r() < 0.5 });
+    for (let i = 0; i < 24; i++) {
       const kinds = ["ammonite", "bones", "skull"];
-      add({ kind: kinds[Math.floor(r() * 3)], y: both(SEABED + 15, SEABED + 190), pal: bone, flip: r() < 0.5 });
+      add({ kind: kinds[Math.floor(r() * 3)], y: between(25, crust.to - 10), pal: bone, flip: r() < 0.5 });
     }
-    for (let i = 0; i < 26; i++) add({ kind: "diamond", y: both(920, 1050), pal: { w: "#ffffff", c: "#9fe8ff" }, glow: "#bff4ff", sparkle: true });
-    for (let i = 0; i < 90; i++) add({ kind: "magma", y: both(910, 1890), size: 2 + r() * 5, vy: 0.4 + r() * 0.8 });
-    for (let i = 0; i < 26; i++) add({ kind: "crystal", y: both(2520, 2890), pal: { w: "#ffffff", c: "#ffe7a3" }, glow: "#fff4c8", sparkle: true, flip: r() < 0.5 });
+    for (let i = 0; i < 26; i++) add({ kind: "diamond", y: both(upper.from + 20, upper.from + 150), pal: { w: "#ffffff", c: "#9fe8ff" }, glow: "#bff4ff", sparkle: true });
+    for (let i = 0; i < 90; i++) add({ kind: "magma", y: both(upper.from + 10, CORE_TOP - 10), size: 2 + r() * 5, vy: 0.4 + r() * 0.8 });
+    for (let i = 0; i < 30; i++) add({ kind: "lantern", y: between(FAR_SEABED + 10, END - 70), vx: (r() - 0.5) * 6, glow: r() < 0.5 ? "#7fe8ff" : "#b8ff9a" });
+    for (let i = 0; i < 4; i++) {
+      const dir = r() < 0.5 ? -1 : 1;
+      add({ kind: "angler", y: between(FAR_SEABED + 15, END - 120), vx: dir * (2 + r() * 3), pal: { a: "#1b2a38", e: "#ffe066", w: "#d8e4ee", g: "#4a6274" }, glow: "#ffe066", flip: dir > 0 });
+    }
+    for (let i = 0; i < 26; i++) add({ kind: "crystal", y: both(inner.from + 20, CENTRE - 10), pal: { w: "#ffffff", c: "#ffe7a3" }, glow: "#fff4c8", sparkle: true, flip: r() < 0.5 });
   }
 
   // ---------- Facts that drift past as you go ----------
@@ -257,21 +277,25 @@
     [600, "THE HADAL ZONE — named after Hades"],
     [700, "THE TRENCH FLOOR — a perfect dive stops here"],
   ];
+  // Positions in the Dig to China route (see ROUTE).
   const DIG_FACTS = [
-    [705, "THE CRUST — you've broken through the seabed"],
-    [729, "deepest hole humans ever dug: 12 km (Kola, Russia)"],
-    [900, "THE UPPER MANTLE — rock that flows like very slow taffy"],
-    [969, "diamonds form around 150 km down"],
-    [1300, "THE LOWER MANTLE — 660 km down"],
-    [1600, "the pressure here would crush a submarine like a can"],
-    [1900, "THE OUTER CORE — liquid iron at about 4,500°C"],
-    [2150, "this swirling iron is what makes Earth's magnetic field"],
-    [2500, "THE INNER CORE — solid iron hotter than the Sun's surface"],
+    [2, "THE BACKYARD — grab a shovel"],
+    [12, "worms, roots and the odd lost toy"],
+    [50, "the deepest mine ever dug goes about 4 km down"],
+    [layer("crust").from, "THE CRUST — solid rock from here on"],
+    [layer("crust").from + 90, "deepest hole humans ever dug: 12 km (Kola, Russia)"],
+    [layer("upper").from, "THE UPPER MANTLE — rock that flows like very slow taffy"],
+    [layer("upper").from + 70, "diamonds form around 150 km down"],
+    [layer("lower").from, "THE LOWER MANTLE — 660 km down"],
+    [layer("lower").from + 300, "the pressure here would crush a submarine like a can"],
+    [CORE_TOP, "THE OUTER CORE — liquid iron at about 4,500°C"],
+    [CORE_TOP + 250, "this swirling iron is what makes Earth's magnetic field"],
+    [layer("inner").from, "THE INNER CORE — solid iron hotter than the Sun's surface"],
     [CENTRE, "THE CENTRE OF THE EARTH — 6,371 km. Halfway."],
-    [CENTRE + 400, "THE OUTER CORE — now climbing up the other side"],
-    [CENTRE + 1000, "THE LOWER MANTLE"],
-    [CENTRE + 1600, "THE UPPER MANTLE"],
-    [FAR_SEABED - 200, "THE OCEAN CRUST — almost there"],
+    [layer("outer", true).from, "THE OUTER CORE — now climbing up the other side"],
+    [layer("lower", true).from, "THE LOWER MANTLE"],
+    [layer("upper", true).from, "THE UPPER MANTLE"],
+    [layer("crust", true).from, "THE OCEAN CRUST — almost there"],
     [FAR_SEABED, "THE SEABED — of the Indian Ocean. Not China. Sorry."],
     [END, "THE SURFACE — you dug through the whole planet"],
   ];
@@ -306,7 +330,7 @@
   }
 
   function buildFacts() {
-    const list = dig ? [...FACTS, ...DIG_FACTS] : FACTS;
+    const list = dig ? DIG_FACTS : FACTS;
     factsTrack.innerHTML = list.map(([pts, text]) => {
       const big = /^THE [A-Z]{3}/.test(text);
       return `<div class="fact${big ? " big" : ""}" style="top:${pts * PX_PER_PT}px">── ${text}</div>`;
@@ -325,7 +349,7 @@
         c = ramp(SKY, Math.min(1, (y - fY) / (h * ANCHOR)));
       } else {
         c = groundColor(pts);
-        const l = layerAt(pts);
+        const l = dig ? layerAt(pts) : { key: pts < SEABED ? "ocean" : "crust" };
         if (l.key !== "ocean") {
           const wr = Math.floor((pts * PX_PER_PT) / P);
           // Strata: slow bands of light and dark rock.
@@ -337,11 +361,11 @@
       ctx.fillRect(0, y, w, 1);
     }
     // Rock grain: a few speckles per art row, fixed to the world.
-    const top = Math.max(0, Math.floor(rowAtPts(SEABED))), bot = Math.min(h, Math.ceil(rowAtPts(FAR_SEABED)));
+    const top = Math.max(0, Math.floor(rowAtPts(dig ? 0 : SEABED))), bot = Math.min(h, Math.ceil(rowAtPts(dig ? FAR_SEABED : Infinity)));
     for (let y = top; y < bot; y++) {
       const pts = ptsAtRow(y + 0.5);
       const wr = Math.floor((pts * PX_PER_PT) / P);
-      const hot = pts > 1890 && pts < 2 * CENTRE - 1890;
+      const hot = dig && pts > CORE_TOP - 10 && pts < CORE_BOTTOM + 10;
       for (let k = 0; k < 7; k++) {
         const x = Math.floor(hash(wr, k) * w);
         const v = hash(wr, k + 50);
@@ -350,7 +374,9 @@
       }
     }
     // Liquid-iron currents in the outer core.
-    for (const [a, b] of [[1900, 2500], [2 * CENTRE - 2500, 2 * CENTRE - 1900]]) {
+    if (!dig) return;
+    for (const l of [layer("outer"), layer("outer", true)]) {
+      const a = l.from, b = l.to;
       const y0 = Math.max(0, Math.floor(rowAtPts(a))), y1 = Math.min(h, Math.ceil(rowAtPts(b)));
       if (y1 <= y0) continue;
       ctx.fillStyle = "rgba(255,220,120,0.28)";
@@ -365,8 +391,8 @@
     }
   }
 
-  function drawSky(t, surfaceRow, flip) {
-    // flip: the sky on the far side of the Earth, hanging below you.
+  function drawSky(t, surfaceRow, flip, land = false) {
+    // flip: the sky on the far side of the Earth, hanging below you. land: a backyard instead of the sea.
     const dir = flip ? 1 : -1;
     const at = (frac) => surfaceRow + dir * frac * h * ANCHOR;
     if ((flip && surfaceRow > h) || (!flip && surfaceRow < 0)) return;
@@ -395,6 +421,7 @@
       const y = at(0.45 + i * 0.12) + Math.sin(t * 2 + i) * 2;
       ctx.drawImage(sprite("bird", { b: "#3b4b5a" }, false, flip), Math.round(x), Math.round(y));
     }
+    if (land) return drawYard(t, surfaceRow);
     // Waves, with the boat riding them
     for (let x = 0; x < w; x++) {
       const off = Math.round(Math.sin(x * 0.18 + t * 1.6) + Math.sin(x * 0.07 - t * 0.8));
@@ -407,7 +434,30 @@
     ctx.drawImage(boat, bx, flip ? Math.round(surfaceRow) - 2 + bob : Math.round(surfaceRow) - boat.height + 3 + bob);
   }
 
+  // Dig to China starts here: grass, a fence, a dirt pile and the hole you're digging.
+  function drawYard(t, surfaceRow) {
+    const y0 = Math.round(surfaceRow);
+    for (let x = 0; x < w; x++) {
+      const tuft = hash(x, 77) < 0.3 ? 1 : 0;
+      ctx.fillStyle = "#4f9a3a"; ctx.fillRect(x, y0 - 1 - tuft, 1, 2 + tuft);
+      ctx.fillStyle = "#77c25a"; ctx.fillRect(x, y0 - 1 - tuft, 1, 1);
+      ctx.fillStyle = "#3b6e2a"; ctx.fillRect(x, y0 + 1, 1, 1);
+    }
+    for (let x = 4; x < w * 0.35; x += 6) { // picket fence
+      ctx.fillStyle = "#e9e2d0"; ctx.fillRect(x, y0 - 9, 2, 8); ctx.fillRect(x, y0 - 10, 1, 1);
+      if (x + 6 < w * 0.35) { ctx.fillRect(x, y0 - 7, 6, 1); ctx.fillRect(x, y0 - 4, 6, 1); }
+    }
+    const cx = Math.round((W / 2 - 30) / P);
+    ctx.fillStyle = "#6b4a2c"; // dirt pile beside the hole
+    for (let i = 0; i < 9; i++) ctx.fillRect(cx + 9 + i, y0 - Math.round(4 - Math.abs(i - 4)) - 1, 1, Math.round(4 - Math.abs(i - 4)) + 1);
+    ctx.fillStyle = "#8a6440"; ctx.fillRect(cx + 12, y0 - 5, 3, 1);
+    const shovel = sprite("shovel", { w: "#a0703c", m: "#9aa6b0" });
+    ctx.drawImage(shovel, cx + 18, y0 - shovel.height + 1);
+    ctx.fillStyle = "#1a0f08"; ctx.fillRect(cx - 5, y0 - 1, 11, 3); // the hole
+  }
+
   function drawLightRays(t) {
+    if (dig) return;
     const fade = Math.max(0, 1 - cam / 45);
     if (fade <= 0) return;
     const sY = rowAtPts(0);
@@ -425,6 +475,7 @@
   }
 
   function drawTrench() {
+    if (dig) return;
     const y0 = Math.max(0, Math.floor(rowAtPts(560))), y1 = Math.min(h, Math.ceil(rowAtPts(SEABED)));
     for (let y = y0; y < y1; y++) {
       const pts = ptsAtRow(y);
@@ -456,6 +507,7 @@
 
   function drawThings(t, dt) {
     for (const o of things) {
+      if ((o.world === "dig") !== dig) continue;
       const y = rowAtPts(o.y);
       if (y < -40 || y > h + 40) continue;
       o.x += (o.vx * dt) / w;
@@ -492,7 +544,7 @@
   // Other players' drills in a multiplayer dig race, each in its own tunnel beside yours.
   let mates = [];
   function drawMateTunnels(t, cx) {
-    const top = Math.max(0, Math.round(rowAtPts(SEABED)));
+    const top = Math.max(0, Math.round(rowAtPts(0)));
     mates.forEach((m, i) => {
       const x = cx + (i % 2 ? 1 : -1) * 14 * (1 + (i >> 1));
       const at = Math.round(rowAtPts(Math.min(m.pts, END)));
@@ -501,7 +553,7 @@
         ctx.fillStyle = "rgba(10,6,4,0.6)"; ctx.fillRect(x - 4, top, 9, end - top);
         ctx.fillStyle = m.color; ctx.globalAlpha = 0.35; ctx.fillRect(x - 5, top, 1, end - top); ctx.fillRect(x + 5, top, 1, end - top); ctx.globalAlpha = 1;
       }
-      if (m.pts > SEABED - 2 && m.pts < FAR_SEABED && at > -20 && at < h + 20) {
+      if (m.pts < FAR_SEABED && at > -20 && at < h + 20) {
         const spin = Math.floor(t * 4 + i) % 2;
         const d = sprite("drill", { g: "#3b4652", y: m.color, k: "#13202e", s: spin ? "#c9d3dc" : "#7d8a96", S: spin ? "#7d8a96" : "#c9d3dc" });
         ctx.drawImage(d, x - 5, at - d.height + 3);
@@ -513,12 +565,13 @@
     if (!dig) return;
     const cx = Math.round((W / 2 - 30) / P), you = Math.round(rowAtPts(cam));
     drawMateTunnels(t, cx);
-    const top = Math.max(0, Math.round(rowAtPts(SEABED)));
+    const top = Math.max(0, Math.round(rowAtPts(0)));
     const end = Math.min(you, Math.round(rowAtPts(FAR_SEABED)));
-    if (end <= top) return;
-    ctx.fillStyle = "rgba(10,6,4,0.78)"; ctx.fillRect(cx - 5, top, 11, end - top);
-    ctx.fillStyle = "rgba(255,255,255,0.08)"; ctx.fillRect(cx - 6, top, 1, end - top); ctx.fillRect(cx + 6, top, 1, end - top);
-    if (cam > SEABED - 2 && cam < FAR_SEABED) {
+    if (end > top) {
+      ctx.fillStyle = "rgba(10,6,4,0.78)"; ctx.fillRect(cx - 5, top, 11, end - top);
+      ctx.fillStyle = "rgba(255,255,255,0.08)"; ctx.fillRect(cx - 6, top, 1, end - top); ctx.fillRect(cx + 6, top, 1, end - top);
+    }
+    if (cam < FAR_SEABED) {
       const shake = moving ? Math.round(Math.sin(t * 60)) : 0;
       const spin = Math.floor(t * (moving ? 24 : 4)) % 2;
       const pal = { g: "#3b4652", y: "#ffd23f", k: "#13202e", s: spin ? "#c9d3dc" : "#7d8a96", S: spin ? "#7d8a96" : "#c9d3dc" };
@@ -531,8 +584,8 @@
     const shift = (dCam * PX_PER_PT) / P;
     for (const p of particles) {
       const pts = ptsAtRow(p.y);
-      const inWater = (pts > 0 && pts < SEABED) || (pts > FAR_SEABED && pts < END);
-      const hot = pts > 900 && pts < 2 * CENTRE - 900;
+      const inWater = dig ? pts > FAR_SEABED && pts < END : pts > 0 && pts < SEABED;
+      const hot = dig && pts > layer("upper").from && pts < layer("upper", true).to;
       // Water: marine snow drifts down and bubbles drift up. Rock: dust, or embers when it's hot.
       p.y -= shift + (inWater ? (p.s < 0.3 ? 4 : -0.8) : hot ? 2.5 : 0) * dt;
       p.x += Math.sin(p.ph + p.y * 0.05) * 0.1;
@@ -550,7 +603,7 @@
     // Darken the edges more as the light goes, then warm them as the Earth heats up.
     const pts = cam;
     const g = ctx.createRadialGradient(w / 2, h * ANCHOR, h * 0.25, w / 2, h * ANCHOR, h * 0.9);
-    const dark = pts < SEABED ? Math.min(0.55, pts / 700) : pts < 1900 ? 0.5 : 0.2;
+    const dark = !dig ? Math.min(0.55, pts / SEABED) : pts < 0 || pts > FAR_SEABED ? 0.15 : pts < CORE_TOP || pts > CORE_BOTTOM ? 0.45 : 0.2;
     g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, `rgba(0,0,0,${dark})`);
     ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
   }
@@ -572,11 +625,10 @@
     drawLightRays(t);
     drawTrench();
     drawThings(t, dt);
-    drawSeabed(SEABED, false);
-    if (dig) drawSeabed(FAR_SEABED, true);
+    if (dig) drawSeabed(FAR_SEABED, true); else drawSeabed(SEABED, false);
     drawTunnel(t);
     drawParticles(dt, dCam);
-    drawSky(t, rowAtPts(0), false);
+    drawSky(t, rowAtPts(0), false, dig);
     if (dig) drawSky(t, rowAtPts(END), true);
     drawDepthShade();
 

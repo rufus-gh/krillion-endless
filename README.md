@@ -4,11 +4,15 @@ An unlimited version of Krillion's classic mode. Each dive has 7 prompts, with 2
 
 ## Dig to China
 
-Pick **Dig to China** on the title screen. Your depth carries over from one dive to the next. Once you pass the trench floor (7,000 m), a drill takes over and you tunnel through the crust, the mantle, the outer core and the inner core, then climb out the other side and surface in the Indian Ocean (the real antipode of most of the US). The whole trip is 5,500 points, about 20 dives. Your progress is saved in the browser. "Fill in the tunnel" on the title screen starts you over. Layer sizes and point budgets are in `ROUTE` at the top of `scene.js`.
+**Dig to China** is a separate game, reached from the **DIG TO CHINA** button on the title screen. It has its own title screen (**DIGGER**), its own stats and earth-and-lava colours. You start in a backyard with a shovel and dig straight down through the soil, the crust, the mantle, the outer core and the inner core, then come out the other side in the Indian Ocean (the real antipode of most of the US). Your tunnel carries over from one dig to the next. The whole trip is 5,000 points, about 20 digs. Your progress is saved in the browser, and "fill in the tunnel" starts you over.
+
+The rules are the same as the endless dive, with dig wording: **Deep Dig** (85 pts) replaces Deep Cut, **Almost Chinese** (100 pts) replaces One in a Krillion, and running out of time is **Stuck in the Mud**. The result screen shows a little drill rig juddering straight down instead of the krill swaying as it sinks.
+
+The route (layer sizes and point budgets) is `ROUTE` at the top of `scene.js`. The `.dig-bar` gradient in `styles.css` mirrors it. The dig colours are the `body.dig` variables in `styles.css`. Tunnels saved before the dig started on land are converted to the same layer automatically.
 
 ## Graphics
 
-The backdrop is one pixel-art `<canvas>` drawn by `scene.js`. It covers the sky, waves and boat, the sea life for each zone (fish, jellies, a sperm whale, a giant squid, anglerfish, the Titanic, the trench walls) and every layer of the Earth. Everything is positioned in points, the same unit as the score, and a single camera moves the scene, the depth ruler and the fun facts together.
+The backdrop is one pixel-art `<canvas>` drawn by `scene.js`. For the endless dive it covers the sky, waves and boat, and the sea life for each zone (fish, jellies, a sperm whale, a giant squid, anglerfish, the Titanic, the trench walls). For Dig to China it covers the backyard, every layer of the Earth (worms, fossils, diamonds, magma, liquid iron, crystals) and the Indian Ocean on the far side. Everything is positioned in points, the same unit as the score, and a single camera moves the scene, the depth ruler and the fun facts together.
 
 ## Run
 
@@ -59,11 +63,11 @@ Click **Multiplayer** on the title screen. No account is needed; you just pick a
 
 ### Dig to China race
 
-In the lobby, or between dives, the host can switch the room from **Classic** to **Dig to China**. In a dig room:
+In the lobby, or between dives, the host can switch the room from **Classic** to **Dig to China**. A dig room uses the Dig to China route, colours and tier names. In a dig room:
 
 - **Tunnels carry over between dives in that room.** At the start of each dive the server banks everyone's points from the last dive (after halving shared answers) into their tunnel (`players.tunnel_pts`). This is separate from your solo tunnel, which stays in your browser.
 - **Everyone's drill shows on the canvas**, each in its own tunnel beside yours, and on the depth ruler.
-- **The first player to reach the far surface (5,500 pts) wins.** The dive ends at the scoreboard where someone breaks through, even mid-dive, and everyone gets the breakthrough screen. If two players break through on the same prompt, the higher total wins, then whoever answered first.
+- **The first player to reach the far surface (5,000 pts) wins.** The dive ends at the scoreboard where someone breaks through, even mid-dive, and everyone gets the breakthrough screen. If two players break through on the same prompt, the higher total wins, then whoever answered first.
 - **The next dive starts a new race**, with every tunnel filled in. Switching modes also fills in every tunnel.
 - If you leave and join again as a new player, you start from the surface. Refreshing the page keeps your tunnel.
 
