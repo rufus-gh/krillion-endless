@@ -22,6 +22,7 @@
     boardEyebrow: $("boardEyebrow"), boardPrompt: $("boardPrompt"), boardBest: $("boardBest"), boardList: $("boardList"), boardNext: $("boardNext"), boardWait: $("boardWait"),
     finalWinner: $("finalWinner"), finalStandings: $("finalStandings"), finalLog: $("finalLog"), again: $("mpAgainBtn"), finalLeave: $("finalLeave"), finalWait: $("finalWait"),
     pwDialog: $("pwDialog"), pwInput: $("pwInput"), mates: $("mates"),
+    lobbyModes: $("lobbyModes"), lobbyModeNote: $("lobbyModeNote"), finalModes: $("finalModes"), finalEyebrow: $("finalEyebrow"), finalRace: $("finalRace"),
   };
 
   const ERRORS = {
@@ -34,6 +35,7 @@
     round_closed: "Too late, that prompt has closed.",
     not_in_room: "You're no longer in that room.",
     passcode_too_long: "Passwords can be up to 32 characters.",
+    bad_mode: "That mode doesn't exist.",
   };
   const errText = (e) => ERRORS[e && e.message] || "Couldn't reach the server. Try again.";
 
@@ -58,7 +60,7 @@
   let channel = null, refreshTimer = 0, pollTimer = 0, hbTimer = 0, tickTimer = 0, browserTimer = 0, pendingPhase = 0;
   let phaseKey = "", compiled = null, landingUntil = 0, lastNudge = 0, linkPw = "";
 
-  const MP = (window.KrillMP = { active: false, onSubmit, confirmLeave });
+  const MP = (window.KrillMP = { active: false, onSubmit, confirmLeave, dig: () => isDig(), tunnel: () => tunnelOf(myPlayer()) });
   const serverNow = () => Date.now() + offset;
   const isHost = () => room && me && room.host_id === me.player_id;
   const isActive = (p) => p.id === me.player_id || (!p.left_at && serverNow() - Date.parse(p.last_seen) < ACTIVE_MS);
@@ -66,6 +68,22 @@
   const myPlayer = () => players.find((p) => p.id === me.player_id);
   const answerFor = (pid, round = room.round) => answers.find((a) => a.player_id === pid && a.round === round);
   const hue = (id) => [...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
+
+  // Dig to China race: each player's tunnel (banked by the server at the start of every dive)
+  // carries over, and the first to reach the far surface wins. Totals are in points.
+  const GOAL = Scene.END;
+  const isDig = () => !!room && room.mode === "dig";
+  const tunnelOf = (p) => (isDig() && p ? p.tunnel_pts || 0 : 0);
+  const totalOf = (p) => tunnelOf(p) + p.score;
+  const depthText = (pts) => K.depthLabel(isDig() ? Math.min(GOAL, pts) : pts);
+  const pctOf = (pts) => Math.min(100, Math.floor((pts / GOAL) * 100));
+  const nameOf = (id) => (players.find((p) => p.id === id) || {}).name;
+  // Players past the far surface, furthest first (ties: who answered this prompt first).
+  function brokeThrough() {
+    if (!isDig()) return [];
+    const at = (p) => { const a = answerFor(p.id); return a ? Date.parse(a.submitted_at) : Infinity; };
+    return players.filter((p) => totalOf(p) >= GOAL).sort((a, b) => totalOf(b) - totalOf(a) || at(a) - at(b));
+  }
 
   function showError(msg) { ui.error.textContent = msg || ""; }
 
@@ -104,7 +122,7 @@
           : `prompt ${Math.min(r.round + 1, r.total_rounds)} of ${r.total_rounds}`;
         return `<li>
           <div class="room-main">
-            <b>${esc(r.name)}</b>${r.locked ? ` <span class="pill">LOCKED</span>` : ""}
+            <b>${esc(r.name)}</b>${r.locked ? ` <span class="pill">LOCKED</span>` : ""}${r.mode === "dig" ? ` <span class="pill dig">DIG RACE</span>` : ""}
             <span class="muted">${esc(r.host_name || "?")} · ${r.players} diver${r.players === 1 ? "" : "s"} · ${state} · ${r.code}</span>
           </div>
           <button class="small-btn" data-code="${r.code}" data-locked="${r.locked}">JOIN</button>
@@ -226,7 +244,7 @@
     const code = me.code;
     const [r, p, a] = await Promise.all([
       sb.from("rooms").select("*").eq("code", code).maybeSingle(),
-      sb.from("players").select("id,name,score,joined_at,last_seen,left_at").eq("room_code", code).order("joined_at"),
+      sb.from("players").select("id,name,score,tunnel_pts,joined_at,last_seen,left_at").eq("room_code", code).order("joined_at"),
       sb.from("answers").select("round,player_id,answer,tier,pts,submitted_at").eq("room_code", code),
     ]);
     if (!me || me.code !== code) return;
@@ -275,7 +293,7 @@
   }
 
   function render() {
-    const key = [room.status, room.round, room.round_started_at].join("|");
+    const key = [room.status, room.round, room.round_started_at, room.mode].join("|");
     if (key !== phaseKey) {
       // Let your own descent finish before jumping to the scoreboard.
       const wait = landingUntil - performance.now();
@@ -306,6 +324,7 @@
     }
     if (room.status === "reveal") renderBoard();
     if (room.status === "finished") renderFinal();
+    if (room.status === "lobby" || room.status === "finished") renderModes();
     renderPips();
     renderMates();
   }
@@ -329,6 +348,27 @@
     setHud(0);
     K.show(ui.lobby);
     ui.shareLink.value = shareUrl();
+  }
+
+  function renderModes() {
+    for (const box of [ui.lobbyModes, ui.finalModes]) {
+      for (const b of box.querySelectorAll("button")) {
+        b.classList.toggle("on", b.dataset.mode === room.mode);
+        b.disabled = !isHost();
+      }
+    }
+    ui.finalModes.classList.toggle("hidden", !isHost());
+    ui.lobbyModeNote.textContent = isDig()
+      ? `Race to China: your tunnel carries over from dive to dive, and the first to dig out the far side (${GOAL.toLocaleString()} pts) wins.`
+      : "Classic: every dive starts at the surface, and the deepest dive wins.";
+  }
+
+  async function setMode(mode) {
+    if (!isHost() || !room || mode === room.mode) return;
+    const dug = isDig() && players.some((p) => p.tunnel_pts > 0);
+    if (dug && !confirm("Switching modes fills in everyone's tunnel. Switch anyway?")) return;
+    try { await rpc("set_room_mode", { p_player_id: me.player_id, p_token: me.token, p_mode: mode }); scheduleRefresh(); }
+    catch (e) { alert(errText(e)); }
   }
 
   function renderLobby() {
@@ -462,10 +502,10 @@
         <span class="who">${esc(pl.name)}${pl.id === me.player_id ? " (you)" : ""}</span>
         <span class="ans">${a && a.answer ? `“${esc(a.answer)}”` : `<i>no answer</i>`}${a && a.sharedWith && a.sharedWith.length ? `<span class="shared">½ shared with ${a.sharedWith.map(esc).join(", ")}</span>` : ""}</span>
         <span class="tier">${tier ? K.TIERS[tier].name : K.MISS.name}</span>
-        <span class="pts">+${a ? a.pts : 0}<small>${(pl.score * K.METRES_PER_POINT).toLocaleString()}m total</small></span>
+        <span class="pts">+${a ? a.pts : 0}<small>${depthText(totalOf(pl))} total</small></span>
       </li>`;
     }).join("");
-    const last = room.round + 1 >= total;
+    const last = room.round + 1 >= total || brokeThrough().length > 0;
     ui.boardNext.textContent = last ? "FINAL RESULTS ▼" : "NEXT PROMPT ▼";
     ui.boardNext.classList.toggle("hidden", !isHost());
     renderBoardTimer();
@@ -473,12 +513,13 @@
 
   function renderBoardTimer() {
     const secs = Math.max(0, Math.ceil((Date.parse(room.phase_ends_at) - serverNow()) / 1000));
-    const last = room.round + 1 >= room.prompt_ids.length;
+    const through = brokeThrough();
+    const last = room.round + 1 >= room.prompt_ids.length || through.length > 0;
     const what = last ? "Final results" : "Next prompt";
     const host = players.find((p) => p.id === room.host_id);
-    ui.boardWait.textContent = isHost()
+    ui.boardWait.textContent = (through.length ? `${through[0].id === me.player_id ? "You" : through[0].name} dug out the other side! ` : "") + (isHost()
       ? `${what} in ${secs}s, or skip ahead.`
-      : `${what} in ${secs}s${host ? ` (or when ${host.name} continues)` : ""}.`;
+      : `${what} in ${secs}s${host ? ` (or when ${host.name} continues)` : ""}.`);
   }
 
   async function nextRound() {
@@ -498,21 +539,38 @@
 
   function renderFinal() {
     const ids = new Set([...activePlayers().map((p) => p.id), ...answers.map((a) => a.player_id)]);
-    const ranked = players.filter((p) => ids.has(p.id)).sort((a, b) => b.score - a.score);
+    const dig = isDig();
+    if (dig) for (const p of players) if (p.tunnel_pts > 0) ids.add(p.id);
+    const ranked = players.filter((p) => ids.has(p.id)).sort((a, b) => totalOf(b) - totalOf(a));
     const top = ranked[0];
-    const winners = ranked.filter((p) => top && p.score === top.score);
-    ui.finalWinner.textContent = !top ? "" : winners.length > 1 ? `It's a tie at ${(top.score * 10).toLocaleString()}m!` : `${top.name} dives deepest!`;
+    const winners = ranked.filter((p) => top && totalOf(p) === totalOf(top));
+    const winner = dig && room.winner_id ? players.find((p) => p.id === room.winner_id) : null;
+    ui.final.classList.toggle("breakthrough", !!winner);
+    ui.finalEyebrow.textContent = winner ? "BREAKTHROUGH!" : dig ? "DIVE COMPLETE · THE RACE IS ON" : "DIVE COMPLETE";
+    if (winner) {
+      ui.finalWinner.textContent = winner.id === me.player_id ? "You dug through to the other side!" : `${winner.name} dug through to the other side!`;
+      ui.finalRace.textContent = "First out of the hole, into the Indian Ocean. Not China, but close enough. The next dive starts a new race.";
+    } else if (dig) {
+      ui.finalWinner.textContent = !top ? "" : winners.length > 1 ? `Neck and neck at ${depthText(totalOf(top))}!` : `${top.name} leads the race!`;
+      ui.finalRace.textContent = top ? `${pctOf(totalOf(top))}% of the way through. Tunnels carry over to the next dive.` : "";
+    } else {
+      ui.finalWinner.textContent = !top ? "" : winners.length > 1 ? `It's a tie at ${(top.score * 10).toLocaleString()}m!` : `${top.name} dives deepest!`;
+      ui.finalRace.textContent = "";
+    }
     let rank = 0, prev = null;
     ui.finalStandings.innerHTML = ranked.map((p, i) => {
-      if (p.score !== prev) { rank = i + 1; prev = p.score; }
+      const t = totalOf(p);
+      if (t !== prev) { rank = i + 1; prev = t; }
       const depth = p.score * K.METRES_PER_POINT;
+      const detail = dig ? `${K.placeName(Math.min(GOAL, t))} · ${pctOf(t)}% · +${p.score} this dive` : `${K.zoneFor(depth).name} · ${p.score} pts`;
       return `<li style="--c:hsl(${hue(p.id)} 80% 68%)" class="${p.id === me.player_id ? "me" : ""}">
         <span class="rank">${rank}</span><span class="dot"></span>
         <span class="who">${esc(p.name)}${p.id === me.player_id ? " (you)" : ""}</span>
-        <span class="depth">${depth.toLocaleString()}m<small>${K.zoneFor(depth).name} · ${p.score} pts</small></span>
+        <span class="depth">${dig ? depthText(t) : depth.toLocaleString() + "m"}<small>${detail}</small></span>
       </li>`;
     }).join("");
-    ui.finalLog.innerHTML = room.prompt_ids.map((pid, round) => {
+    // A dig race can end mid-dive, so only list the prompts that were played.
+    ui.finalLog.innerHTML = room.prompt_ids.slice(0, room.round + 1).map((pid, round) => {
       const p = PROMPTS[pid];
       const gem = (p.answers.gem[0] || "").split("|")[0];
       const finders = answers.filter((a) => a.round === round && a.tier === "gem").map((a) => (players.find((x) => x.id === a.player_id) || {}).name).filter(Boolean);
@@ -526,8 +584,9 @@
       </li>`;
     }).join("");
     const host = players.find((p) => p.id === room.host_id);
+    ui.again.textContent = winner ? "▼ NEW RACE ▼" : dig ? "▼ KEEP DIGGING ▼" : "▼ DIVE AGAIN ▼";
     ui.again.classList.toggle("hidden", !isHost());
-    ui.finalWait.textContent = isHost() ? "" : `Waiting for ${host ? host.name : "the host"} to start another dive…`;
+    ui.finalWait.textContent = isHost() ? "" : `Waiting for ${host ? host.name : "the host"} to start ${winner ? "a new race" : "another dive"}…`;
   }
 
   // ---------- HUD + ruler ----------
@@ -545,24 +604,27 @@
   // Other divers ride the depth ruler beside you. During a prompt they stay at their
   // depth from before it, so nobody's answer is given away until the scoreboard.
   function renderMates() {
-    if (!MP.active || !room || room.status === "lobby") { ui.mates.innerHTML = ""; return; }
-    const myDepth = K.depth;
+    if (!MP.active || !room || room.status === "lobby") { ui.mates.innerHTML = ""; Scene.setMates([]); return; }
+    const myPts = tunnelOf(myPlayer()) + K.depth / K.METRES_PER_POINT;
     const base = innerHeight * 0.52;
-    const px = K.RULER_PX_PER_M;
+    const px = K.RULER_PX_PER_M * K.METRES_PER_POINT;
     const stack = {};
-    ui.mates.innerHTML = activePlayers().filter((p) => p.id !== me.player_id).map((p) => {
+    const others = activePlayers().filter((p) => p.id !== me.player_id).map((p) => {
       const a = room.status === "playing" ? answerFor(p.id) : null;
-      const depth = (p.score - (a ? a.pts : 0)) * K.METRES_PER_POINT;
-      let y = base + (depth - myDepth) * px;
+      return { p, a, pts: totalOf(p) - (a ? a.pts : 0) };
+    });
+    Scene.setMates(isDig() ? others.map(({ p, pts }) => ({ pts: Math.min(GOAL, pts), color: `hsl(${hue(p.id)} 80% 68%)` })) : []);
+    ui.mates.innerHTML = others.map(({ p, a, pts }) => {
+      let y = base + (pts - myPts) * px;
       const min = 150, max = innerHeight - 150;
       const off = y < min ? "up" : y > max ? "down" : "";
       y = Math.max(min, Math.min(max, y));
       const slot = Math.round(y / 18);
       const n = (stack[slot] = (stack[slot] || 0) + 1) - 1;
-      if (Math.abs(depth - myDepth) < 10) y += 20 + n * 20; else y += n * 20;
+      if (Math.abs(pts - myPts) < 1) y += 20 + n * 20; else y += n * 20;
       const done = room.status === "playing" && a ? " ✓" : "";
       return `<div class="mate ${off}" style="top:${y}px;--c:hsl(${hue(p.id)} 80% 68%)">
-        <span>${off === "up" ? "▲ " : off === "down" ? "▼ " : ""}${esc(p.name)} · ${depth.toLocaleString()}m${done}</span>
+        <span>${off === "up" ? "▲ " : off === "down" ? "▼ " : ""}${esc(p.name)} · ${depthText(pts)}${done}</span>
       </div>`;
     }).join("");
   }
@@ -588,6 +650,8 @@
     me = null; room = null; players = []; answers = []; compiled = null; phaseKey = "";
     seat.set(null);
     ui.mates.innerHTML = "";
+    Scene.setMates([]);
+    ui.final.classList.remove("breakthrough");
     ui.progress.classList.add("hidden");
     ui.resultWait.classList.add("hidden");
     K.el.next.classList.remove("hidden");
@@ -614,6 +678,9 @@
   ui.start.addEventListener("click", startGame);
   ui.again.addEventListener("click", startGame);
   ui.boardNext.addEventListener("click", nextRound);
+  for (const box of [ui.lobbyModes, ui.finalModes]) {
+    box.addEventListener("click", (e) => { const b = e.target.closest("button[data-mode]"); if (b) setMode(b.dataset.mode); });
+  }
   ui.lobbyLeave.addEventListener("click", confirmLeave);
   ui.finalLeave.addEventListener("click", confirmLeave);
   document.addEventListener("krill:depth", () => requestAnimationFrame(renderMates));
