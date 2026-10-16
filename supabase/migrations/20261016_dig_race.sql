@@ -16,7 +16,7 @@ alter table public.players
 
 -- Points to the far surface. Must match Scene.END in scene.js.
 create or replace function public._dig_goal() returns int
-language sql immutable set search_path = '' as $$ select 5500 $$;
+language sql immutable set search_path = '' as $$ select 5000 $$;
 
 -- Each player's points in the current dive, with the half-points-for-shared-answers rule
 -- (the same rule mp.js applyShared() applies in the browser): when two or more players give

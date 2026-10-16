@@ -18,6 +18,20 @@
   };
   const TIER_ORDER = ["plankton", "tooClever", "schooler", "rare", "deepCut", "gem"];
   const MISS = { name: "Lost at Sea", pts: 0, flavor: "Out of air. The clock ran dry." };
+  // Dig to China renames some tiers and rewrites the flavour text; syncTheme() swaps them in and out.
+  const DIG_WORDS = {
+    plankton:  { flavor: "Everyone's dug this far. Barely a scratch." },
+    tooClever: { flavor: "The obscure pick… that everyone else dug up too." },
+    schooler:  { flavor: "Digging with the crowd. Solid." },
+    rare:      { flavor: "Genuinely uncommon. Nice shovelful." },
+    deepCut:   { name: "Deep Dig", flavor: "Very few diggers ever get this far down." },
+    gem:       { name: "Almost Chinese", flavor: "The hidden gem. You can almost smell the dumplings." },
+    miss:      { name: "Stuck in the Mud", flavor: "The clock ran out. Not an inch." },
+  };
+  const SEA_WORDS = Object.fromEntries(Object.keys(DIG_WORDS).map((k) => {
+    const t = k === "miss" ? MISS : TIERS[k];
+    return [k, { name: t.name, flavor: t.flavor }];
+  }));
 
   const ZONES = [
     { to: 200,  name: "Sunlight Zone", color: "#1d5f8f" },
@@ -139,8 +153,10 @@
     quit: $("quitBtn"),
     title: $("screenTitle"), play: $("screenPlay"), result: $("screenResult"), end: $("screenEnd"),
     tierTable: $("tierTable"), titleStats: $("titleStats"), diveNum: $("diveNum"), start: $("startBtn"),
-    modes: $("modes"), digInfo: $("digInfo"), digBar: $("digBar"), digText: $("digText"), digReset: $("digReset"),
-    eyebrow: $("promptEyebrow"), promptText: $("promptText"), feedback: $("feedback"),
+    digBtn: $("digBtn"), digScreen: $("screenDig"), digTierTable: $("digTierTable"), digStats: $("digStats"), digNum: $("digNum"),
+    digStart: $("digStartBtn"), digBack: $("digBackBtn"),
+    digBar: $("digBar"), digText: $("digText"), digReset: $("digReset"),
+    eyebrow: $("promptEyebrow"), promptText: $("promptText"), promptHint: $("promptHint"), feedback: $("feedback"), endEyebrow: $("endEyebrow"),
     resultIcon: $("resultIcon"), resultTier: $("resultTier"), resultAnswer: $("resultAnswer"), resultPoints: $("resultPoints"),
     resultFlavor: $("resultFlavor"), next: $("nextBtn"),
     endDepth: $("endDepth"), endZone: $("endZone"), endScore: $("endScore"), endLandmark: $("endLandmark"), endLog: $("endLog"),
@@ -150,6 +166,22 @@
 
   const tierColor = (t) => `var(--t-${t})`;
 
+  // The Dig to China mascot: a little drill rig, nose down.
+  const DIGGER = [
+    "...wwwwwww...",
+    "..rrrrrrrrr..",
+    ".rrrrrrrrrrr.",
+    ".rreeerrrrrr.",
+    ".rreeerrrrrr.",
+    ".rrrrrrrrrrr.",
+    "rrrrrrrrrrrrr",
+    ".wwwwwwwwwww.",
+    "..wrwwrwwrw..",
+    "...wwrwwrw...",
+    "....wrwrw....",
+    ".....wrw.....",
+    "......w......",
+  ];
   const KRILL = [
     "..........w..",
     ".......w.w...",
@@ -173,25 +205,53 @@
   }
 
   // ---------- Modes ----------
-  // Classic: every dive starts at the surface. Dig to China: your depth carries over between
-  // dives, and past the trench floor you drill on through the Earth to the other side.
+  // Classic (the endless dive): every dive starts at the surface. Dig to China: a separate game
+  // that starts in a backyard; your tunnel carries over between digs until you come out the far side.
   // In a multiplayer room, the room's mode and your tunnel there (see mp.js) apply instead.
   let mode = store.get("mode", "classic");
   const digOn = () => (isMp() ? window.KrillMP.dig() : mode === "dig");
-  const digState = () => store.get("dig", { pts: 0, trips: 0 });
+  // Saves from before the dig started on land (v1) measured from the ocean surface; move them to the same layer.
+  function digState() {
+    const d = store.get("dig", { pts: 0, trips: 0, v: 2 });
+    if (d.v !== 2) {
+      const p = d.pts || 0;
+      d.pts = p < 700 ? Math.round(p / 7) : p < 900 ? Math.round(100 + (p - 700) * 1.5) : p - 500;
+      d.v = 2;
+      store.set("dig", d);
+    }
+    return d;
+  }
   const base = () => (isMp() ? window.KrillMP.tunnel() : digOn() ? digState().pts : 0);
+  const statsKey = () => (digOn() ? "digstats" : "stats");
 
   // Depth in points -> what the HUD shows.
   function depthLabel(pts) {
-    if (!digOn() || pts < 100) return Math.round(pts * METRES_PER_POINT).toLocaleString() + "m";
+    if (!digOn()) return Math.round(pts * METRES_PER_POINT).toLocaleString() + "m";
     const km = Scene.kmAt(pts);
+    if (km < 1) return Math.round(km * 1000).toLocaleString() + "m";
     return (km < 100 ? km.toFixed(1) : Math.round(km).toLocaleString()) + "km";
   }
   const zoneFor = (m) => (m >= MAX_DEPTH ? { name: "Trench Floor" } : ZONES.find((z) => m < z.to));
   function placeName(pts) {
-    if (pts < Scene.SEABED) return zoneFor(pts * METRES_PER_POINT).name;
+    if (!digOn()) return zoneFor(pts * METRES_PER_POINT).name;
     if (pts >= Scene.END) return "The Other Side";
     return Scene.layerAt(pts).name;
+  }
+
+  // Colours, tier names and wording follow the mode: the sea for Krillion, the earth for Digger.
+  let themed = null;
+  function syncTheme() {
+    const dig = digOn();
+    if (themed === dig) return;
+    themed = dig;
+    document.body.classList.toggle("dig", dig);
+    const words = dig ? DIG_WORDS : SEA_WORDS;
+    for (const k in words) Object.assign(k === "miss" ? MISS : TIERS[k], SEA_WORDS[k], words[k]);
+    el.promptHint.textContent = dig ? "▼ rarer answers dig deeper ▼" : "▼ rarer answers sink deeper ▼";
+    el.diveBtn.textContent = dig ? "DIG" : "DIVE";
+    el.endEyebrow.textContent = dig ? "DIG COMPLETE" : "DIVE COMPLETE";
+    el.again.textContent = dig ? "▼ KEEP DIGGING ▼" : "▼ DIVE AGAIN ▼";
+    el.home.textContent = dig ? "Climb out" : "Surface";
   }
 
   const PX_PER_PT = RULER_PX_PER_M * METRES_PER_POINT;
@@ -220,6 +280,7 @@
   // m: depth of this dive in metres. dur: how long the camera takes to get there.
   function setDepthVisual(m, dur = 900) {
     currentDepth = m;
+    syncTheme();
     Scene.setDig(digOn());
     buildRuler();
     document.dispatchEvent(new CustomEvent("krill:depth", { detail: m }));
@@ -252,6 +313,7 @@
     el.bar.classList.toggle("hidden", screen !== el.play);
     el.hud.classList.toggle("idle", screen === el.title || screen.dataset.idle === "true");
     el.quit.classList.toggle("hidden", screen === el.title || screen === el.end || screen.dataset.noquit === "true");
+    el.quit.title = digOn() ? "Climb out (quit dig)" : "Surface (quit dive)";
     el.title.parentElement.scrollTop = 0;
   }
 
@@ -265,37 +327,35 @@
   }
 
   function renderTitle() {
-    el.tierTable.innerHTML = TIER_ORDER.map((t) =>
-      `<tr><td style="color:${tierColor(t)}">${TIERS[t].name}</td><td>${TIERS[t].pts} pts</td><td>${(TIERS[t].pts * METRES_PER_POINT).toLocaleString()} m</td></tr>`
+    const dig = mode === "dig";
+    (dig ? el.digTierTable : el.tierTable).innerHTML = TIER_ORDER.map((t) =>
+      `<tr><td style="color:${tierColor(t)}">${TIERS[t].name}</td><td>${TIERS[t].pts} pts</td><td>${dig ? "" : (TIERS[t].pts * METRES_PER_POINT).toLocaleString() + " m"}</td></tr>`
     ).join("");
-    const st = store.get("stats", { dives: 0, best: 0, total: 0 });
-    el.titleStats.textContent = st.dives
-      ? `dives ${st.dives} · best ${(st.best * METRES_PER_POINT).toLocaleString()}m · avg ${Math.round((st.total / st.dives) * METRES_PER_POINT).toLocaleString()}m`
-      : "";
-    el.diveNum.textContent = `ENDLESS DIVE #${st.dives + 1}`;
-    for (const b of el.modes.querySelectorAll("button")) b.classList.toggle("on", b.dataset.mode === mode);
-    el.digInfo.classList.toggle("hidden", mode !== "dig");
-    if (mode === "dig") {
-      const d = digState();
-      const pct = Math.floor((d.pts / Scene.END) * 100);
-      el.digBar.style.left = (d.pts / Scene.END) * 100 + "%";
-      el.digText.textContent = d.pts
-        ? `Your tunnel: ${depthLabel(d.pts)} · ${placeName(d.pts)} · ${pct}% of the way through`
-        : `Start at the surface. Every point digs deeper, and your tunnel carries over between dives.`;
-      if (d.trips) el.digText.textContent += ` · trips through the Earth: ${d.trips}`;
-      el.digReset.classList.toggle("hidden", !d.pts);
-      el.diveNum.textContent = `DIG #${st.dives + 1}`;
+    const st = store.get(statsKey(), { dives: 0, best: 0, total: 0 });
+    if (!dig) {
+      el.titleStats.textContent = st.dives
+        ? `dives ${st.dives} · best ${(st.best * METRES_PER_POINT).toLocaleString()}m · avg ${Math.round((st.total / st.dives) * METRES_PER_POINT).toLocaleString()}m`
+        : "";
+      el.diveNum.textContent = `ENDLESS DIVE #${st.dives + 1}`;
+      return;
     }
+    const d = digState();
+    const pct = Math.floor((d.pts / Scene.END) * 100);
+    el.digBar.style.left = (d.pts / Scene.END) * 100 + "%";
+    el.digText.textContent = d.pts
+      ? `Your tunnel: ${depthLabel(d.pts)} · ${placeName(d.pts)} · ${pct}% of the way through`
+      : `You're in the backyard with a shovel. Every point digs deeper, and your tunnel carries over between digs.`;
+    if (d.trips) el.digText.textContent += ` · trips through the Earth: ${d.trips}`;
+    el.digReset.classList.toggle("hidden", !d.pts);
+    el.digStats.textContent = st.dives ? `digs ${st.dives} · best ${st.best} pts · avg ${Math.round(st.total / st.dives)} pts` : "";
+    el.digNum.textContent = `DIG #${st.dives + 1}`;
   }
 
   function setMode(m) {
     if (m === mode) return;
     mode = m;
     store.set("mode", m);
-    el.hudScore.textContent = "0";
-    setDepthVisual(0, 1200);
-    el.hudDepth.textContent = depthLabel(base());
-    renderTitle();
+    goHome();
   }
 
   function goHome() {
@@ -307,8 +367,8 @@
     setDepthVisual(0);
     el.hudDepth.textContent = depthLabel(base());
     renderTitle();
-    show(el.title);
-    el.start.focus({ preventScroll: true });
+    show(mode === "dig" ? el.digScreen : el.title);
+    (mode === "dig" ? el.digStart : el.start).focus({ preventScroll: true });
   }
 
   function startDive() {
@@ -394,7 +454,8 @@
     const before = dive.score;
     dive.score += info.pts;
     dive.results[dive.i] = { prompt: p.prompt, answer: hit ? hit.display : null, tier: hit ? hit.tier : null, pts: info.pts, gem: p.gem };
-    showVerdict(hit, before, dive.score, dive.i + 1 < dive.prompts.length ? "DESCEND ▼" : "SEE YOUR DIVE ▼");
+    const last = dive.i + 1 >= dive.prompts.length;
+    showVerdict(hit, before, dive.score, digOn() ? (last ? "SEE YOUR DIG ▼" : "DIG ▼") : last ? "SEE YOUR DIVE ▼" : "DESCEND ▼");
     renderPips();
   }
 
@@ -408,13 +469,13 @@
     const color = hit ? tierColor(hit.tier) : "var(--t-miss)";
     el.result.style.setProperty("--tier", color);
     el.resultIcon.style.color = color;
-    el.resultIcon.innerHTML = sprite(KRILL);
+    el.resultIcon.innerHTML = sprite(digOn() ? DIGGER : KRILL);
     el.resultTier.textContent = info.name.toUpperCase();
     el.resultTier.style.color = color;
     el.resultAnswer.textContent = hit ? `“${hit.display}”` : "—";
     el.resultPoints.innerHTML = hit
-      ? `<b>+${info.pts} PTS</b> · ${digOn() && base() + after > Scene.SEABED ? `down to ${depthLabel(Math.min(Scene.END, base() + after))}` : `sink ${(info.pts * METRES_PER_POINT).toLocaleString()}m`}`
-      : `<b>+0 PTS</b> · no descent`;
+      ? `<b>+${info.pts} PTS</b> · ${digOn() ? `dig down to ${depthLabel(Math.min(Scene.END, base() + after))}` : `sink ${(info.pts * METRES_PER_POINT).toLocaleString()}m`}`
+      : `<b>+0 PTS</b> · ${digOn() ? "not an inch" : "no descent"}`;
     el.resultFlavor.textContent = info.flavor;
     el.next.textContent = nextLabel || "";
     el.next.classList.toggle("hidden", !nextLabel);
@@ -457,10 +518,10 @@
 
   function endDive() {
     const depth = dive.score * METRES_PER_POINT;
-    const st = store.get("stats", { dives: 0, best: 0, total: 0 });
+    const st = store.get(statsKey(), { dives: 0, best: 0, total: 0 });
     const newBest = dive.score > st.best;
     st.dives++; st.total += dive.score; st.best = Math.max(st.best, dive.score);
-    store.set("stats", st);
+    store.set(statsKey(), st);
 
     el.endDepth.textContent = depth.toLocaleString() + "m";
     el.endZone.textContent = zoneFor(depth).name.toUpperCase();
@@ -477,7 +538,7 @@
       el.endZone.textContent = placeName(total).toUpperCase();
       if (total >= Scene.END) {
         d.trips++; d.pts = 0;
-        el.endLandmark.textContent = "You dug straight through the Earth and came out in the Indian Ocean. Next dig starts from home.";
+        el.endLandmark.textContent = "You dug straight through the Earth and came out in the Indian Ocean. Almost Chinese! The next dig starts from the backyard.";
       } else {
         d.pts = total;
         const next = Scene.ROUTE.find((l) => l.from > total);
@@ -495,10 +556,12 @@
         <span class="q">${escapeHtml(r.prompt)}</span>
         <span class="a">${r.answer ? escapeHtml(r.answer) : "<i>no answer</i>"}</span>
         <span class="pts">+${r.pts}<small>${tname}</small></span>
-        ${r.tier === "gem" ? "" : `<span class="g">one in a krillion: <b>${escapeHtml(r.gem)}</b></span>`}
+        ${r.tier === "gem" ? "" : `<span class="g">${TIERS.gem.name.toLowerCase()}: <b>${escapeHtml(r.gem)}</b></span>`}
       </li>`;
     }).join("");
-    el.endStats.textContent = `dives ${st.dives} · best ${(st.best * METRES_PER_POINT).toLocaleString()}m · avg ${Math.round((st.total / st.dives) * METRES_PER_POINT).toLocaleString()}m`;
+    el.endStats.textContent = digOn()
+      ? `digs ${st.dives} · best ${st.best} pts · avg ${Math.round(st.total / st.dives)} pts`
+      : `dives ${st.dives} · best ${(st.best * METRES_PER_POINT).toLocaleString()}m · avg ${Math.round((st.total / st.dives) * METRES_PER_POINT).toLocaleString()}m`;
     show(el.end);
     el.again.focus({ preventScroll: true });
   }
@@ -509,7 +572,9 @@
 
   // ---------- Wire up ----------
   el.start.addEventListener("click", startDive);
-  el.modes.addEventListener("click", (e) => { const b = e.target.closest("button[data-mode]"); if (b) setMode(b.dataset.mode); });
+  el.digStart.addEventListener("click", startDive);
+  el.digBtn.addEventListener("click", () => setMode("dig"));
+  el.digBack.addEventListener("click", () => setMode("classic"));
   el.digReset.addEventListener("click", () => {
     if (!confirm("Fill in your tunnel and start again from the surface?")) return;
     store.set("dig", { ...digState(), pts: 0 });
@@ -529,7 +594,7 @@
 
   // Shared with mp.js
   window.Krill = {
-    TIERS, TIER_ORDER, MISS, METRES_PER_POINT, SECONDS_PER_PROMPT, PROMPTS_PER_DIVE, RULER_PX_PER_M,
+    TIERS, TIER_ORDER, MISS, syncTheme, METRES_PER_POINT, SECONDS_PER_PROMPT, PROMPTS_PER_DIVE, RULER_PX_PER_M,
     el, store, show, goHome, buildIndex, match, drawPrompts, tierColor, escapeHtml, zoneFor, depthLabel, placeName,
     setDepthVisual, animateCounters, setTimerDisplay, startTimer, stopTimer, rejectGuess, showVerdict, endDescent,
     get depth() { return currentDepth; },

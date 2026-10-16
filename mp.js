@@ -359,7 +359,7 @@
     }
     ui.finalModes.classList.toggle("hidden", !isHost());
     ui.lobbyModeNote.textContent = isDig()
-      ? `Race to China: your tunnel carries over from dive to dive, and the first to dig out the far side (${GOAL.toLocaleString()} pts) wins.`
+      ? `Race to China: your tunnel carries over from dig to dig, and the first to dig out the far side (${GOAL.toLocaleString()} pts) wins.`
       : "Classic: every dive starts at the surface, and the deepest dive wins.";
   }
 
@@ -546,13 +546,13 @@
     const winners = ranked.filter((p) => top && totalOf(p) === totalOf(top));
     const winner = dig && room.winner_id ? players.find((p) => p.id === room.winner_id) : null;
     ui.final.classList.toggle("breakthrough", !!winner);
-    ui.finalEyebrow.textContent = winner ? "BREAKTHROUGH!" : dig ? "DIVE COMPLETE · THE RACE IS ON" : "DIVE COMPLETE";
+    ui.finalEyebrow.textContent = winner ? "BREAKTHROUGH!" : dig ? "DIG COMPLETE · THE RACE IS ON" : "DIVE COMPLETE";
     if (winner) {
       ui.finalWinner.textContent = winner.id === me.player_id ? "You dug through to the other side!" : `${winner.name} dug through to the other side!`;
-      ui.finalRace.textContent = "First out of the hole, into the Indian Ocean. Not China, but close enough. The next dive starts a new race.";
+      ui.finalRace.textContent = "First out of the hole, into the Indian Ocean. Not China, but close enough. The next dig starts a new race.";
     } else if (dig) {
       ui.finalWinner.textContent = !top ? "" : winners.length > 1 ? `Neck and neck at ${depthText(totalOf(top))}!` : `${top.name} leads the race!`;
-      ui.finalRace.textContent = top ? `${pctOf(totalOf(top))}% of the way through. Tunnels carry over to the next dive.` : "";
+      ui.finalRace.textContent = top ? `${pctOf(totalOf(top))}% of the way through. Tunnels carry over to the next dig.` : "";
     } else {
       ui.finalWinner.textContent = !top ? "" : winners.length > 1 ? `It's a tie at ${(top.score * 10).toLocaleString()}m!` : `${top.name} dives deepest!`;
       ui.finalRace.textContent = "";
@@ -562,7 +562,7 @@
       const t = totalOf(p);
       if (t !== prev) { rank = i + 1; prev = t; }
       const depth = p.score * K.METRES_PER_POINT;
-      const detail = dig ? `${K.placeName(Math.min(GOAL, t))} · ${pctOf(t)}% · +${p.score} this dive` : `${K.zoneFor(depth).name} · ${p.score} pts`;
+      const detail = dig ? `${K.placeName(Math.min(GOAL, t))} · ${pctOf(t)}% · +${p.score} this dig` : `${K.zoneFor(depth).name} · ${p.score} pts`;
       return `<li style="--c:hsl(${hue(p.id)} 80% 68%)" class="${p.id === me.player_id ? "me" : ""}">
         <span class="rank">${rank}</span><span class="dot"></span>
         <span class="who">${esc(p.name)}${p.id === me.player_id ? " (you)" : ""}</span>
@@ -580,13 +580,13 @@
         <span class="q">${esc(p.prompt)}</span>
         <span class="a">you: ${mine && mine.answer ? esc(mine.answer) : "<i>no answer</i>"}${mine && mine.sharedWith && mine.sharedWith.length ? ` <span class="shared">½ shared with ${mine.sharedWith.map(esc).join(", ")}</span>` : ""}</span>
         <span class="pts">+${mine ? mine.pts : 0}<small>${mine && mine.tier ? K.TIERS[mine.tier].name : K.MISS.name}</small></span>
-        <span class="g">one in a krillion: <b>${esc(gem)}</b>${finders.length ? ` · found by ${finders.map(esc).join(", ")}` : ""}</span>
+        <span class="g">${esc(K.TIERS.gem.name.toLowerCase())}: <b>${esc(gem)}</b>${finders.length ? ` · found by ${finders.map(esc).join(", ")}` : ""}</span>
       </li>`;
     }).join("");
     const host = players.find((p) => p.id === room.host_id);
     ui.again.textContent = winner ? "▼ NEW RACE ▼" : dig ? "▼ KEEP DIGGING ▼" : "▼ DIVE AGAIN ▼";
     ui.again.classList.toggle("hidden", !isHost());
-    ui.finalWait.textContent = isHost() ? "" : `Waiting for ${host ? host.name : "the host"} to start ${winner ? "a new race" : "another dive"}…`;
+    ui.finalWait.textContent = isHost() ? "" : `Waiting for ${host ? host.name : "the host"} to start ${winner ? "a new race" : dig ? "another dig" : "another dive"}…`;
   }
 
   // ---------- HUD + ruler ----------
@@ -598,7 +598,7 @@
       if (a) return `<div class="pip" style="background:${a.tier ? K.tierColor(a.tier) : "var(--t-miss)"}"></div>`;
       return `<div class="pip${i === room.round && room.status === "playing" ? " current" : ""}"></div>`;
     }).join("");
-    K.el.hudPrompt.textContent = room.status === "finished" ? "DIVE COMPLETE" : `PROMPT ${room.round + 1} OF ${total}`;
+    K.el.hudPrompt.textContent = room.status === "finished" ? (isDig() ? "DIG COMPLETE" : "DIVE COMPLETE") : `PROMPT ${room.round + 1} OF ${total}`;
   }
 
   // Other divers ride the depth ruler beside you. During a prompt they stay at their
